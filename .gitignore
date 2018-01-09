@@ -1,0 +1,9 @@
+*.pyc
+
+# emacs backup files
+*.py~
+*.txt~
+*.ini~
+
+# package results
+lensanalysis.egg-info/*
