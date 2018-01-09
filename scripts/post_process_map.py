@@ -1,11 +1,11 @@
-import sys
-import argparse
+import sys,os
+import argparse,ConfigParser
 import logging
-import os
-import lenstools as lt
+import time
 
-import logging
-import ConfigParser
+import lenstools as lt
+from lenstools.simulations.logs import peakMemory,peakMemoryAll
+import astropy.units as u
 
 #MPI
 from mpi4py import MPI
@@ -40,6 +40,14 @@ class PathTracker(object):
     def smoothed_noisy_catalog(self,realization):
         return self.smoothed_noisy_catalog_fname.format(realization)
 
+def ensure_dir_exists(paths):
+    """
+    Ensures that the directories exist, and if they don't, create them.
+    """
+    for path in paths:
+        if os.path.isdir(path):
+            continue
+        os.makedirs(path)
 
 def smoothing(map_id, path_tracker, overwrite, smoothing_scale):
     """
@@ -89,8 +97,9 @@ def catalog_peaks(smoothed_kappa, smoothed_noisy, map_id, path_tracker,
                                             positions[:,1].value))
     np.save(smoothed_noisy_catalog, smoothed_noisy_peaks)
 
-def post_process(map_id,path_tracker,smoothing_scales,overwrite=True,
+def post_process(map_id,path_tracker,smoothing_scales,logger,overwrite=True,
                  extra_callback = [], options = {}):
+    logger.info("Processing realization {:04d}".format(map_id))
     # compute smoothed_kappa
     smoothed_kappa = smoothing(map_id, path_tracker, overwrite, smoothing_scale)
     # compute smoothed_noisy
@@ -100,9 +109,61 @@ def post_process(map_id,path_tracker,smoothing_scales,overwrite=True,
     for callback in extra_callback:
         callback(smoothed_kappa, smoothed_noisy, map_id, path_tracker,
                  overwrite, options)
-    
+
+def dispatcher(pool, num_realizations, path_tracker, smoothing_scales, logger,
+               overwrite=True, extra_callback = [], options = {}):
+
+    if pool is None:
+        first_map_realization = 0
+        last_map_realization = num_realizations
+        realizations_per_test = num_realizations
+        fmat = (first_map_realization, last_map_realization)
+        logger.debug("Post Processing realizations from {0} to {1}".format(fmat))
+    else:
+        message = ("Perfect load-balancing enforced, map_realizations must be a "
+                   "multiple of the number of MPI tasks!")
+        assert map_realizations%(pool.size+1)==0, message
+        realizations_per_task = map_realizations//(pool.size+1)
+	first_map_realization = realizations_per_task*pool.rank
+        last_map_realization = realizations_per_task*(pool.rank+1)
+        logger.debug("Task {0} will generate lensing map realizations from {1}"
+                        "to {2}".format(pool.rank,first_map_realization+1,
+                                        last_map_realization))
+    begin = time.time()
+    #Log initial memory load
+    peak_memory_task,peak_memory_all = peakMemory(),peakMemoryAll(pool)
+    if (pool is None) or (pool.is_master()):
+        logger.info(("Initial memory usage: {0:.3f} (task), {1[0]:.3f} (all "
+                        "{1[1]} tasks)").format(peak_memory_task,peak_memory_all))
+
+    for realization in range(first_map_realization,last_map_realization):
+        last_timestamp = now
+        post_process(map_id+1,path_tracker,smoothing_scales,logger,overwrite,
+                     extra_callback = extra_callback, options = options)
+        now = time.time()
+		
+	#Log peak memory usage to stdout
+	peak_memory_task,peak_memory_all = peakMemory(),peakMemoryAll(pool)
+	logger.info(("Weak lensing calculations for realization {0} completed in "
+                     "{1:.3f}s").format(realization+1,now-last_timestamp))
+	logger.info(("Peak memory usage: {0:.3f} (task), {1[0]:.3f} (all {1[1]} "
+                     "tasks)").format(peak_memory_task,peak_memory_all))
+
+    #Safety sync barrier
+    if pool is not None:
+        pool.comm.Barrier()
+
+    if (pool is None) or (pool.is_master()):	
+	now = time.time()
+	logdriver.info("Total runtime {0:.3f}s".format(now-begin))
+
 if __name__ == '__main__':
 
+    # This needs to be cleaned up. Namely, we need to put some of the
+    # operations inside of functions
+    # we also need to do error checking with the configuration file
+
+    
     #Parse command line options
     parser = argparse.ArgumentParser()
     parser.add_argument("-v","--verbose",dest="verbose",action="store_true",
@@ -166,13 +227,40 @@ if __name__ == '__main__':
             raise NotImplementedError("Can't handle redshifts that deviate "
                                       "from format")
 
+    z = cmd_args.z
+
     # start setting up the file paths
 
-    noise_fname=None
-    unsmoothed_fname = None
-    smoothed_kappa_fname = None
-    smoothed_noisy_fname = None
-    smoothed_noisy_catalog_fname = None
+    noise_fname= config.get('Noise Files','file_template')
+    temp = '/'.join([config.get('Unsmoothed Maps', 'root_directory'),
+                     config.get('Unsmoothed Maps',
+                                'directory_template').format(z)])
+    conv_map_fname = ''.join([config.get('Unsmoothed Maps',
+                                         'file_prefix').format(z),
+                              config.get('Unsmoothed Maps',
+                                         'realization_portion'),
+                              config.get('Unsmoothed Maps',
+                                         'file_suffix')])
+    unsmoothed_fname = '/'.join([temp, conv_map_fname])
+
+    analysis_dir = config.get('Analysis Data','root_directory')
+    processed_maps = '/'.join([analysis_dir,
+                               'Maps',
+                               config.get('Analysis Data',
+                                          'directory_template').format(z)])
+    smoothed_kappa_dir = '/'.join([processed_maps,'Smoothed_kappa'])
+    ensure_dir_exists(smoothed_kappa_dir)
+    smoothed_kappa_fname = '/'.join([smoothed_kappa_dir,conv_map_fname])
+    smoothed_noisy_dir = '/'.join([processed_maps,'Smoothed_noisy'])
+    ensure_dir_exists(smoothed_noisy_dir)
+    smoothed_noisy_fname = '/'.join([smoothed_noisy_dir,conv_map_fname])
+    source_config_dir = '/'.join([analysis_dir,'fiducial',
+                                  config.get('Analysis Data',
+                                             'directory_template').format(z)])
+    catalog_dir = '/'.join([source_config_dir,'PeakCatalogs','KNPeaks'])
+    ensure_dir_exists(catalog_dir)
+    smoothed_noisy_catalog_fname = '/'.join([catalog_dir,'peaks_{04:d}r.npy'])
+    
 
     # create an instance of path tracker
     path_tracker = PathTracker(noise_fname, unsmoothed_fname,
@@ -180,3 +268,11 @@ if __name__ == '__main__':
                                smoothed_noisy_catalog_fname)
 
     # execute
+
+    num_realizations = config.getint('Analysis Data','num_realizations')
+    overwrite = not cmd_args.resume
+    extra_callback = []
+    if cmd_args.peaks:
+        extra_callback.append(catalog_peaks)
+
+    smoothing_scale = (1.0*u.arcminute)/np.sqrt(2)
