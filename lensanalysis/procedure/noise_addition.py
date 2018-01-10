@@ -136,4 +136,4 @@ class NoiseAdditionStep(IntermediateProcedureStep):
         if self.noise_adder is None:
             return data_object
         else:
-            return self.noise_adder.add_noise(data_object,packet.realization)
+            return self.noise_adder.add_noise(data_object,packet.data_id)

@@ -1,6 +1,14 @@
 from abc import ABCMeta
 from collections import Iterable
 
+import numpy as np
+
+class DataPacket(object):
+    def __init__(self,data_id,features = []):
+        self.data_id = data_id
+        self.features = np.array(features)
+        
+
 class ComponentProceudureStep(object):
     __metaclass__ = ABCMeta
     """
@@ -64,6 +72,11 @@ class Procedure(CompositeProcedureStep):
         for data_object, packet in iterable:
             self.apply(data_object, packet)
 
+class SimpleProcedure(Procedure):
+    """
+    Simplest concrete implementation of Procedure
+    """
+
 class ProcedureStepDecorator(ComponentProcedureStep):
     __metaclass__ = ABCMeta
 
@@ -98,12 +111,6 @@ class IntermediateProcedureStep(ProcedureStepDecorator):
         self._apply_to_results(result,packet)
         if wrapped_step is not None:
             self.wrapped_step(result,packet)
-
-
-
-
-
-
 
 
 """
