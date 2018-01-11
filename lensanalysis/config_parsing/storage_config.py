@@ -2,7 +2,8 @@ import ConfigParser
 
 from ..misc.serialization import ShearMapCollectionFGStorage, \
     ConvergenceMapCollectionFGStorage, PeakLocCollectionFGStorage, \
-    PeakCountCollectionFGStorage, BaseFnameFormatter
+    PeakCountCollectionFGStorage, FullShearCatFGLoader, BaseFnameFormatter, \
+    RealizationBinnedSubdirectoryFormatter
 
 def _parse_descriptor(descriptors):
     """
@@ -83,9 +84,6 @@ def _create_collection_storage(descriptors,root_dir,section_name,config):
     # find the local directory where the storage is held
     local_dir = config.get(section_name, '_'.join([string_prefix,'dir']))
     storage_dir = '/'.join(root_dir,local_dir)
-    # check to see if the storage directory exists
-    raise RuntimeError("CHECK IF STORAGE DIRECTORY EXISTS - if it does "
-                       "create it (within reason).")
 
     # Find the fname_template
     fname_template = config.get(section_name,
@@ -138,3 +136,119 @@ class StorageConfig(object):
         pass
         
 
+def _set_defaults_dynamically(config, section, defaults):
+    for elem in defaults:
+        try:
+            config.get(section,elem[0])
+        except ConfigParser.NoOptionError:
+            config.set(section,elem[0],elem[1])
+    
+def _set_subdir_binned_realization_defaults(config, section, prefix):
+    """
+    We set the defaults in this way rather than the built-in way because to use 
+    the built-in method we most know the prefixes ahead of time.
+    """
+    defaults = [('_'.join(prefix,'subdir'), False),
+                ('_'.join(prefix,'subdir_min_loc'), 'binned_realizations'),
+                ('_'.join(prefix,'subdir_min_loc'), -1),
+                ('_'.join(prefix,'subdir_max_loc'), -1),
+                ('_'.join(prefix,'subdir_mid_loc'), -1)]
+    _set_defaults_dynamically(config,section,defaults)
+
+def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
+                                               prefix):
+    _set_subdir_binned_realization_defaults(config,section,prefix)
+    subdir_choice = '_'.join(prefix,'subdir')
+
+    if not config.getboolean(section,elem[0]):
+        return fname_formatter
+
+    format_option = config.get(section,'_'.join(prefix,'subdir_min_loc')) 
+    assert format_option == 'binned_realizations'
+    
+    directory_template = config.get(section,'_'.join(prefix,'subdir_template'))
+    realizations_per_bin=config.getint(section,
+                                       '_'.join(prefix,
+                                                'subdir_realizations_per_bin'))
+
+    fields = [None, None, None]
+
+    iterable = [(config.getint(section,'_'.join(prefix,'subdir_min_loc')),
+                 'min'),
+                (config.getint(section,'_'.join(prefix,'subdir_max_loc')),
+                 'max'),
+                (config.getint(section,'_'.join(prefix,'subdir_mid_loc')),
+                 'mid')]
+    for field_loc, field in iterable:
+        
+        if min_loc != -1:
+            if 0<=min_loc < 3:
+                if fields[min_loc] is None:
+                    fields[min_loc] = 'min'
+                else:
+                    raise ValueError("More than one field specified for the "
+                                     "same location in the template")
+            else:
+                raise ValueError(("{:s} must be assigned an integer value "
+                                  "location from -1 to 2").format(field))
+    if fields[2] is None:
+        if fields[1] is None:
+            if fields[0] is None:
+                raise ValueError("A subdirectory is unecessary")
+            else:
+                fields = fields[:1]
+        else:
+            fields = fields[:2]
+    return RealizationBinnedSubdirectoryFormatter(directory_template,
+                                                  fields,
+                                                  realizations_per_dir,
+                                                  fname_formatter,
+                                                  "realization")
+
+def _construct_shear_fname_formatter(config, section):
+    fname_template = config.get(section,"shear_cat_fname_template")
+    bin_loc = config.get(section,"shear_cat_fname_binning_loc")
+    if bin_loc not in [0,1]:
+        raise ValueError("shear_cat_fname_binning_loc must be 0 or 1")
+    realization_loc = config.get(section,"shear_cat_fname_realization_loc")
+    if realization_loc not in [0,1]:
+        raise ValueError("shear_cat_fname_realization_loc must be 0 or 1")
+    if realization_loc == bin_loc:
+        raise ValueError("shear_cat_fname_realization_loc and "
+                         "shear_cat_fname_binning_loc must\nhave different "
+                         "values")
+    if bin_loc == 0:
+        fields = ["bin", "realization"]
+    else:
+        fields = ["realization", "bin"]
+    fname_formatter = BaseFnameFormatter(fname_template, fields)
+    return _build_subdir_binned_realization_formatter(fname_formatter, config,
+                                                      section, 'shear_cat')
+def _pos_fname_formatter(config,section):
+    fname_template = config.get(section,"shear_cat_fname_template")
+    return BaseFnameFormatter(fname_template, ["bin"])
+
+_normal_field_mapping = {"collection_id" : "realization",
+                         "element_id" : "bin"}
+
+class ShearCatCollectionLoaderConfig(object):
+    """
+    Object responsible for creating the shear catalog loader.
+    """
+
+    def __init__(self,config_file):
+        config = ConfigParser.SafeConfigParser()
+        config.read(config_file)
+        self._config = config
+
+    def constructCompleteShearCatLoader(self,root_dir):
+        num_elements = self._config.getint("ShearCats","num_cat_bins")
+        shear_formatter = _construct_shear_fname_formatter(self._config,
+                                                           "ShearCats")
+        pos_formatter = _pos_fname_formatter(config,"ShearCats")
+        loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
+                                      _normal_field_mapping, pos_formatter)
+        return loader
+
+if __name__ == '__main__':
+    ShearCatCollectionLoaderConfig("shear_cat_config.ini")
