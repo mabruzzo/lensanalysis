@@ -1,6 +1,6 @@
 import ConfigParser
 
-from ..serialization import ShearMapCollectionFGStorage, \
+from ..misc.serialization import ShearMapCollectionFGStorage, \
     ConvergenceMapCollectionFGStorage, PeakLocCollectionFGStorage, \
     PeakCountCollectionFGStorage, BaseFnameFormatter
 

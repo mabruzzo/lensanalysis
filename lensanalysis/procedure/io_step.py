@@ -1,5 +1,5 @@
 from procedure import AtomicProcedureStep, ConversionProcedureStep
-from ..serialization import CollectionSaver, CollectionLoader
+from ..misc.serialization import CollectionSaver, CollectionLoader
 
 class LoadCollection(ConversionProcedureStep):
     """
