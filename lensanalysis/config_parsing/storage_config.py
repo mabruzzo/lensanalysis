@@ -2,7 +2,9 @@ import ConfigParser
 
 from ..misc.serialization import ShearMapCollectionFGStorage, \
     ConvergenceMapCollectionFGStorage, PeakLocCollectionFGStorage, \
-    PeakCountCollectionFGStorage, FullShearCatFGLoader, BaseFnameFormatter, \
+    PeakCountCollectionFGStorage, FullShearCatFGLoader
+
+from ..misc.fname_formatter import BaseFnameFormatter, \
     RealizationBinnedSubdirectoryFormatter
 
 def _parse_descriptor(descriptors):
