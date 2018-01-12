@@ -7,6 +7,36 @@ from ..misc.serialization import ShearMapCollectionFGStorage, \
 from ..misc.fname_formatter import BaseFnameFormatter, \
     RealizationBinnedSubdirectoryFormatter
 
+def _set_defaults_dynamically(config, section, defaults):
+    for elem in defaults:
+        try:
+            config.get(section,elem[0])
+        except ConfigParser.NoOptionError:
+            config.set(section,elem[0],elem[1])
+
+_tomo_descriptors = ["tomo","tomography","tomographic"]
+_smoothing_descriptors = ['smoothed','smooth']
+_noisy_descriptors = ["noisy"]
+            
+def _check_unallowed_descriptors(descriptors,descriptor_subsets):
+    """
+    Helper function that ensures descriptors only fall in a subset.
+    """
+    for elem in descriptor_subsets:
+        if elem == 'noisy':
+            ref_descriptors = _noisy_descriptors
+        elif elem == 'tomo':
+            ref_descriptors = _tomo_descriptors
+        elif elem == 'smooth':
+            ref_descriptors = _smoothing_descriptors
+        else:
+            raise ValueError(("{:s} is invalid descriptor checking"
+                              "subset").format(elem))
+        for i in ref_descriptors:
+            if i in descriptors:
+                raise ValueError("{:s} is not an allowed descriptor".format(i))
+                
+        
 def _parse_descriptor(descriptors):
     """
     Helper Function.
@@ -15,7 +45,7 @@ def _parse_descriptor(descriptors):
         raise ValueError("Too many descriptors mentioned")
     results = [False,False, False]
     for elem in descriptors:
-        if elem.lower() in ["tomo","tomography","tomographic"]:
+        if elem.lower() in _tomo_descriptors:
             if results[0]:
                 raise ValueError("tomographic descriptor mentioned more than "
                                  "once.")
@@ -23,13 +53,13 @@ def _parse_descriptor(descriptors):
             raise NotImplementedError("Not Presently Equiped to handle "
                                       "tomographic data")
 
-        elif elem.lower() in ['smoothed','smooth']:
+        elif elem.lower() in _smoothing_descriptor:
             if results[1]:
                 raise ValueError("smoothing descriptor mentioned more than "
                                  "once.")
             results[1] = True
 
-        elif elem.lower() == "noisy":
+        elif elem.lower() == _noisy_descriptors:
             if results[2]:
                 raise ValueError("noisy descriptor mentioned more than "
                                  "once.")
@@ -56,40 +86,94 @@ def _descriptor_string_prefix(results):
         temp_l.append('noisy'):
     return '_'.join(temp_l)
 
-def _create_collection_storage(descriptors,root_dir,section_name,config):
-    decoded_arg = _parse_descriptor(descriptors)
-    string_prefix = _descriptor_string_prefix
+def _check_create_storage(config,section,option,default = None):
+    """
+    Checks to see if the configuration file want to ever allow this storage.
 
-    config= self._config_parser
-        
-    # check to see if ConvergenceMaps was a section in the configuration
-    # if not then we won't save anything.
+    Parameters
+    ----------
+    config - ConfigParser
+        Instance of RawConfigParser, ConfigParser or SafeConfigParser
+    section - str
+        The name of the section where the configuration comes from
+    option - str
+        The name of the option that holds this info
+    default - None or bool, optional
+        The default value to return if there is no such option. If the value of 
+        this argument is None, then an error is raised if the option does not 
+        exist. By default this is set to None
+    """
+
     if not config.has_section(section_name):
-        return None
+        message = "The [{:s}] section is missing.".format(section_name)
+        raise ConfigParser.NoSectionError(message)
 
-    # probably should set up some formal defaults
+    if not config.has_option(section_name,option):
+        if default is not None:
+            # if default is None we will allow for the error
+            return default
+    return config.getboolean(section_name,option)
 
-    # check to see if the line allowing for storage creation section exists
-    # (if it does not assume that it is not allowed)
-    if not config.has_section(section_name, '_'.join([string_prefix,'map'])):
-            return None
+def _option_builder(*args):
+    temp = [arg for arg in args if arg is not None]
+    return '_'.join(temp)
 
-    if config.has_option(section_name,'_'.join([string_prefix,'map'])):
-        return None
-    make_storage = config.getboolean(section_name,
-                                     '_'.join([string_prefix,'map']))
+def _create_collection_storage(descriptors,root_dir,section_name,
+                               config, core_option_name = None,
+                               storage_option_suffix = None,
+                               storage_dir_suffix = 'dir',
+                               storage_fname_suffix = 'fname'):
+    """
+    General Helper Function to help read in storage configuration.
+
+    Parameters
+    ----------
+    descriptors : sequence or str
+        descriptors to discriminate between types of storage
+    root_dir : str
+        the directory within which all data is stored
+    section - str
+        The name of the section where the configuration comes from
+    config : ConfigParser
+        Instance of RawConfigParser, ConfigParser or SafeConfigParser
+    core_option_name : str or None, optional
+        The core part of the option name. If this is None, then there is no 
+        core part of the string. By default this is None.
+    storage_option_suffix : str or None
+        The suffix of the option that tells you whether or not we want to make 
+        a storage object. By default this is None.
+    storage_dir_suffix : str or None
+        The suffix of the option that tells you where the name of the storage 
+        directory that will (or already does) hold the collections. Default is 
+        'dir'.
+    storage_fname_suffix : str or None
+        The suffix of the option that gives the file name template. Default is 
+        'fname'.
+    """
+
+    decoded_arg = _parse_descriptor(descriptors)
+    string_prefix = _descriptor_string_prefix(decoded_arg)
+
+    make_storage_option = _option_builder(string_prefix, core_option_name,
+                                          storage_option_suffix)
+    make_storage = _check_create_storage(config, section_name,
+                                         make_storage_option,
+                                         default = False)
     if not make_storage:
         return None
 
     # Now that we know that storage is allowed, check the remaining fields
 
     # find the local directory where the storage is held
-    local_dir = config.get(section_name, '_'.join([string_prefix,'dir']))
+    dir_option_name = _option_builder(string_prefix, core_option_name,
+                                      storage_dir_suffix)
+    local_dir = config.get(section_name, dir_option_name)
     storage_dir = '/'.join(root_dir,local_dir)
 
     # Find the fname_template
-    fname_template = config.get(section_name,
-                                '_'.join([string_prefix,'fname']))
+    fname_option_name = _option_builder(string_prefix, core_option_name,
+                                        storage_fname_suffix)
+    fname_template = config.get(section_name, fname_option_name)
 
     field_mapping = {"collection_id":"realization"}
 
@@ -108,6 +192,9 @@ def _create_collection_storage(descriptors,root_dir,section_name,config):
 class StorageConfig(object):
     """
     Represents the storage configuration specified by a configuration file.
+
+    We should almost certainly be copying over the data from the ConfigParser 
+    and ignoring the ConfigParser afterwards.
     """
 
     def __init__(self,config_file):
@@ -121,30 +208,43 @@ class StorageConfig(object):
         """
         return _create_collection_storage(descriptors, root_dir,
                                           "ConvergenceMaps",
-                                          self._config_parser)
+                                          self._config_parser,
+                                          core_option_name = None,
+                                          storage_option_suffix = 'map',
+                                          storage_dir_suffix = 'dir',
+                                          storage_fname_suffix = 'fname')
 
     def shear_map_collection_storage(self,descriptors,root_dir):
-        if "smooth" in descriptors:
-            raise ValueError("smooth is not an allowed descriptor")
-        if "smoothed" in descriptors:
-            raise ValueError("smoothed is not an allowed descriptor")
+        _check_unallowed_descriptors(descriptors,['smooth'])
         return _create_collection_storage(descriptors, root_dir,
-                                          "ShearMaps", self._config_parser)
+                                          "ShearMaps",
+                                          self._config_parser,
+                                          core_option_name = None,
+                                          storage_option_suffix = 'map',
+                                          storage_dir_suffix = 'dir',
+                                          storage_fname_suffix = 'fname')
 
     def peak_loc_collection_storage(self,descriptors,root_dir):
-        pass
+        _check_unallowed_descriptors(descriptors,['smooth','noise'])
+        return _create_collection_storage(descriptors, root_dir,
+                                          "FeatureProducts",
+                                          self._config_parser,
+                                          core_option_name = "peak_loc",
+                                          storage_option_suffix = None,
+                                          storage_dir_suffix = 'dir',
+                                          storage_fname_suffix = 'fname')
 
     def peak_counts_collection_storage(self,descriptors,root_dir):
-        pass
-        
+        _check_unallowed_descriptors(descriptors,['smooth','noise'])
+        return _create_collection_storage(descriptors, root_dir,
+                                          "FeatureProducts",
+                                          self._config_parser,
+                                          core_option_name = "peak_counts",
+                                          storage_option_suffix = None,
+                                          storage_dir_suffix = 'dir',
+                                          storage_fname_suffix = 'fname')
 
-def _set_defaults_dynamically(config, section, defaults):
-    for elem in defaults:
-        try:
-            config.get(section,elem[0])
-        except ConfigParser.NoOptionError:
-            config.set(section,elem[0],elem[1])
-    
+
 def _set_subdir_binned_realization_defaults(config, section, prefix):
     """
     We set the defaults in this way rather than the built-in way because to use 
