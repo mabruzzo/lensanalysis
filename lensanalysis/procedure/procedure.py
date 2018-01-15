@@ -1,4 +1,4 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod, abstractproperty
 from collections import Iterable
 
 import numpy as np
@@ -9,7 +9,7 @@ class DataPacket(object):
         self.features = np.array(features)
         
 
-class ComponentProceudureStep(object):
+class ComponentProcedureStep(object):
     __metaclass__ = ABCMeta
     """
     Abstract base class to represent a procedural step
