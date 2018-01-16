@@ -3,6 +3,11 @@ import logging
 
 from lensanalysis.config_parsing.cosmo_config import \
     CosmoCollectionConfigBuilder
+from lensanalysis.config_parsing.procedure_config import ProcedureConfig
+from lensanalysis.misc.analysis_collection import AnalysisProductCollection, \
+    ConvergenceMapProductCollection, ShearMapProductCollection, \
+    FeatureProductCollection, set_analysis_col_value, get_analysis_col_value
+from lensanalysis.misc.enum_definitions import DescriptorEnum
 from lensanalysis.misc.name_parser import SafeNameParser
 from lensanalysis.procedure.procedure import SimpleProcedure
 
@@ -62,6 +67,17 @@ parser.add_argument("--fiducial",dest = "fiducial", action = "store_true",
                             "cosmology."))
 parser.add_argument("id",nargs=1,
                     help = "The name of cosmology to post-process.")
+parser.add_argument("--min",dest = "min_realization", action = "store",
+                    default = None,
+                    help = ("Specify the minimum realization to process."
+                            "Default is the maximum allowed realization to "
+                            "be processed."))
+parser.add_argument("--max",dest = "max_realization", action = "store",
+                    default = None,
+                    help = ("Specify the maximum (inclusive) realization to "
+                            "process. Default is the maximum allowed "
+                            "realization to be processed."))
+
 
 def get_generator(min_realization,max_realizaiton,use_mpi = False):
     """
@@ -69,9 +85,47 @@ def get_generator(min_realization,max_realizaiton,use_mpi = False):
     """
     pass
 
-def setup_procedure(cmd_args):
+def setup_saved_products_helper(in_progress, analysis_storage_collection,
+                                iterable):
+    for elem in cmd_args.save:
+        descriptors,object_name = parser.parse_name(elem)
+        if DescriptorEnum.tomo in descriptors:
+            raise NotImplementedError("Not currently equipped to handle "
+                                      "tomography")
+        storage = get_analysis_col_value(analysis_storage_collection,
+                                         descriptors, object_name)
+        if storage is None:
+            raise ValueError(("{:s}, {:s} does not have any storage object "
+                              "initialized").format(str(descriptors),
+                                                    object_name))
+        set_analysis_col_value(out, descriptors, object_name)
 
-    
+def determine_saved_products(cmd_args, proc_config,
+                             analysis_storage_collection):
+    """
+    Comes up with an instance of AnalysisProductCollection with True values 
+    for every analysis product we want to save.
+    """
+
+    out = AnalysisProductCollection()
+    out.conv_map = ConvergenceMapProductCollection()
+    out.shear_map = ShearMapProductCollection()
+    out.feature_products = FeatureProductCollection()
+
+    parser = SafeNameParser()
+
+    if cmd_args.save is not None:
+        setup_saved_products_helper(out, analysis_storage_collection,
+                                    cmd_args.save)
+    else:
+        if cmd_args.include is not None:
+            setup_saved_products_helper(out, analysis_storage_collection,
+                                        cmd_args.include)
+        setup_saved_products_helper(out, analysis_storage_collection,
+                                    proc_config.get_default_saved_products())
+    return out
+
+def setup_procedure(cmd_args):
 
     logging.info("Setting up the procedure")
     # first let's build the cosmo collection config builder
@@ -97,33 +151,29 @@ def setup_procedure(cmd_args):
 
 
     # Now, read in the procedure configuration file
-
-    raise RuntimeError("Read in procedure configuration file")
+    proc_config = ProcedureConfig.from_fname(cmd_args.procedure_config)
     
     if cmd_args.save is not None and cmd_args.include is not None:
         raise ValueError("-s/--save and -i/--include cannot both be set")
 
-    # now we end up with a list of things we want to save
-    if cmd_args.save is not None:
-        # need to parse the list arguments from cmd_args.save
-        pass
-    else:
-        # need to parse and pool the arguments from both the procedure config
-        # file and cmd_args.include
-        pass
-
     # at this point, create an instance of analysis product collection and fill
-    # in the appropriate locations with True/False (whether or not we wish to
+    # in the appropriate locations with True/None (whether or not we wish to
     # save the file.
-
     # while doing this check to ensure that such storage locations exist
-    save_configuration = None
+    save_config = determine_saved_products(cmd_args, proc_config,
+                                           analysis_storage_collection)
+
+    # now we do a lttle error checking
+
+    # check to see if we are going backwards in our procedure
+    # check to if we are computing unnoisy and noisy maps
+    # circumvent these things if force flag was enabled
 
 
     # finally, we move to actually building our procedure.
-
+    # start at the end with the features we compute and work our way backwards
+    
     # we start with the features and work our way backwards
-
     
 
 def driver(cmd_args):

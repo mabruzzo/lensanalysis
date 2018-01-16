@@ -77,3 +77,7 @@ class ProcedureConfig(object):
             if value:
                 out.append(object_name)
         return out
+
+    @classmethod
+    def from_fname(cls,fname):
+        return cls(ConfigParser.SafeConfigParser(fname))

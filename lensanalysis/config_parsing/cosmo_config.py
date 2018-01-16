@@ -21,7 +21,8 @@ def _load_single_storage_collection(path, storage_config_method, descriptions):
         if os.path.isdir(head):
             os.mkdir(new_path)
             if not os.path.isdir(new_path):
-                raise RuntimeError("NOT SURE WHAT IS GOING WRONG")
+                raise RuntimeError("IT SHOULDN'T BE POSSIBLE FOR THIS TO GET "
+                                   "CALLED")
         else:
             raise ValueError("{:s} does not exist/ is not a directory")
     return storage
