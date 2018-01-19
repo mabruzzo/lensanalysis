@@ -15,6 +15,7 @@ import numpy as np
 import astropy.table as tbl
 
 from procedure import IntermediateProcedureStep
+from ..misc.log import logprocedure
 
 class NoiseAdder(object):
     __metaclass__ = ABCMeta
@@ -73,6 +74,8 @@ class CatalogShapeNoiseAdder(NoiseAdder):
         self.start_seed = start_seed
 
     def add_noise(self,data_object,map_id):
+        logprocedure.debug(("Adding noise to Shear Catalog(s) of realization "
+                            "{:d}").format(packet.data_id))
         seed = _generate_seed(start_seed,map_id)
         return [catalog.shapeNoise(seed = seed) for catalog in data_object]
 
@@ -133,6 +136,7 @@ class NoiseAdditionStep(IntermediateProcedureStep):
         self.noise_adder = noise_adder
 
     def intermediate_operation(self,data_object,packet):
+        
         if self.noise_adder is None:
             return data_object
         else:

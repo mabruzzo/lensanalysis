@@ -1,5 +1,6 @@
 from procedure import AtomicProcedureStep, ConversionProcedureStep
 from ..misc.serialization import CollectionSaver, CollectionLoader
+from ..misc.log import logprocedure
 
 class LoadCollection(ConversionProcedureStep):
     """
@@ -23,6 +24,7 @@ class LoadCollection(ConversionProcedureStep):
                             "(virtual) subclass of abc, CollectionStorage")
 
     def conversion_operation(self,data_object,packet):
+        logprocedure.debug("Loading realization {:d}".format(packet.data_id))
         return self.collection_loader.load(packet.data_id)
 
 class SaveCollectionEntries(AtomicProcedureStep):
@@ -48,4 +50,5 @@ class SaveCollectionEntries(AtomicProcedureStep):
         Probably will need to modify once we implement some of the actual 
         objects.
         """
+        logprocedure.debug("Saving realization {:d}".format(packet.data_id))
         self.collection_saver.save(data_object,packet.data_id)

@@ -1,4 +1,5 @@
 from procedure import ConversionProcedureStep
+from ..misc.log import logprocedure
 
 class ConvMapSmoothing(IntermediateProcedureStep):
     """
@@ -20,6 +21,7 @@ class ConvMapSmoothing(IntermediateProcedureStep):
         self.kwargs = kwargs
 
     def intermediate_operation(self,data_object,packet):
+        logprocedure.debug("Smoothing realization {:d}".format(packet.data_id))
         out = []
         for conv_map in data_object:
             out.append(conv_map.smooth(self.scale_angle, kind = self.kind,

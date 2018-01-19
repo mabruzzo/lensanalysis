@@ -2,6 +2,7 @@ import astropy.table as tbl
 from lenstools import ShearMap
 
 from procedure import ConversionProcedureStep
+from ..misc.log import logprocedure
 
 class ShearCatalogToShearMap(ConversionProcedureStep):
     """
@@ -35,7 +36,14 @@ class ShearCatalogToShearMap(ConversionProcedureStep):
         self.kwargs = kwargs
 
     def conversion_operation(self,data_object,packet):
-
+        if self.produce_single:
+            message = ("Pixelizing Shear Catalog(s) of realization {:d} into "
+                       "single shear maps.")
+        else:
+            message = ("Pixelizing Shear Catalog(s) of realization {:d} into "
+                       "shear maps.")
+        logprocedure.debug(message.format(packet.data_id))
+            
         out = []
         if self.produce_single:
             catalogs = [tbl.vstack(data_object)]
@@ -53,6 +61,8 @@ class ShearMapToConvMap(ConversionProcedureStep):
     Converts collections of shear maps into collections of convergence maps.
     """
     def conversion_operation(self,data_object,packet):
+        logprocedure.debug(("Converting shear map(s) into convergence map(s) "
+                            "for realiztion {:d}").format(packet.data_id))
         out = [shear_map.convergence() for shear_map in data_object]
         return out
 
