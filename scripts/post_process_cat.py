@@ -8,6 +8,7 @@ from lensanalysis.misc.analysis_collection import AnalysisProductCollection, \
     ConvergenceMapProductCollection, ShearMapProductCollection, \
     FeatureProductCollection, set_analysis_col_value, get_analysis_col_value
 from lensanalysis.misc.enum_definitions import DescriptorEnum
+from lensanalysis.misc.log import logger
 from lensanalysis.misc.name_parser import SafeNameParser
 
 from lensanalysis.procedure.building import build_procedure
@@ -237,17 +238,11 @@ def setup(cmd_args):
 
 def driver(cmd_args):
     # create logger
-    logger = logging.getLogger("log")
-
-    conh = logging.StreamHandler()
-    #Verbosity level
+    Verbosity level
     if cmd_args.verbose:
 	logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    formatter_console = logging.Formatter('%(levelname)s - %(message)s')
-    conh.setFormatter(formatter_console)
-    logger.addHandler(conh)
 
     procedure,generator = setup(cmd_args)
     procedure.apply_to_iterable(generator)
