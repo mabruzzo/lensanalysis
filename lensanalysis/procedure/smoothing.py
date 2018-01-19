@@ -1,4 +1,4 @@
-from procedure import ConversionProcedureStep
+from procedure import IntermediateProcedureStep
 from ..misc.log import logprocedure
 
 class ConvMapSmoothing(IntermediateProcedureStep):

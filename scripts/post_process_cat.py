@@ -68,8 +68,6 @@ parser.add_argument("--fiducial",dest = "fiducial", action = "store_true",
                     help = ("Specify that the analysis is being performed on "
                             "the fiducial cosmology (rather than a sampled "
                             "cosmology."))
-parser.add_argument("id",nargs=1,
-                    help = "The name of cosmology to post-process.")
 parser.add_argument("--min",dest = "min_realization", action = "store",
                     default = None,
                     help = ("Specify the minimum realization to process."
@@ -80,7 +78,8 @@ parser.add_argument("--max",dest = "max_realization", action = "store",
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
                             "realization to be processed."))
-
+parser.add_argument("id",nargs=1,
+                    help = "The name of cosmology to post-process.")
 
 
 
@@ -187,7 +186,7 @@ def setup(cmd_args):
     # storage collection needs to instantiate collections that did not already
     # exist)
 
-    name = cmd_args.id
+    name = cmd_args.id[0]
     if name in cosmo_storage_col:
         analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
     else:
@@ -237,8 +236,7 @@ def setup(cmd_args):
     return procedure,generator
 
 def driver(cmd_args):
-    # create logger
-    Verbosity level
+    # set Verbosity level
     if cmd_args.verbose:
 	logger.setLevel(logging.DEBUG)
     else:

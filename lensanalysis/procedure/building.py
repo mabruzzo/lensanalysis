@@ -1,7 +1,7 @@
 import copy
 
 from .conversions import ShearCatalogToShearMap, ShearMapToConvMap
-from .noise_additions import NoiseAdditionStep, CatalogShapeNoiseAdder
+from .noise_addition import NoiseAdditionStep, CatalogShapeNoiseAdder
 from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
@@ -23,18 +23,18 @@ shear_cat = {}
 
 _noisy = (DescriptorEnum.noisy,)
 _smooth = (DescriptorEnum.smoothed,)
-_noisy_smooth = (DescriptorEnum.noisy, Descriptor.Enumsmoothecd)
+_noisy_smooth = (DescriptorEnum.noisy, DescriptorEnum.smoothed)
 
-shear_cat[(_noisy_smooth, "conv_map")] = [((), "shear_cat", None),
-                                          (_noisy, "shear_map", None),
-                                          (_noisy_smooth, "conv_map", None)]
+#shear_cat[(_noisy_smooth, "conv_map")] = [((), "shear_cat", None),
+#                                          (_noisy, "shear_map", None),
+#                                          (_noisy_smooth, "conv_map", None)]
 #shear_cat[(_noisy,"conv_map")] = ...
 #shear_cat[(_smooth,"conv_map")] = ...
 
-features = {"peak_counting": [((DescriptorEnum.smoothed, DescriptorEnum.noisy),
-                               "conv_map", None),
-                              ((),"peak_loc",None),
-                              ((),"peak_counts", None)]}
+#features = {"peak_counting": [((DescriptorEnum.smoothed, DescriptorEnum.noisy),
+#                               "conv_map", None),
+#                              ((),"peak_loc",None),
+#                              ((),"peak_counts", None)]}
 
 class AnalysisObjectList(object):
     def __init__(self,iterable = []):

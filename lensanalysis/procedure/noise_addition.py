@@ -9,7 +9,7 @@ Defining classes to add noise.
 
 """
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 import astropy.table as tbl

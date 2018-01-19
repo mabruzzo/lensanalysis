@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod, abstractproperty
 import os.path
 
 class AbstractFnameFormatter(object):

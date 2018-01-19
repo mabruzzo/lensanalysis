@@ -1,5 +1,5 @@
 import ConfigParser
-from Collections import OrderedDict
+from collections import OrderedDict
 import os
 import os.path
 
@@ -181,12 +181,12 @@ class CosmologyAnalysisCollection(object):
         return os.path.isdir(os.path.join(self._root_path,name))
 
 
-class SampledStorageCollection(CosmologyCollection):
+class SampledStorageCollection(CosmologyAnalysisCollection):
     """
     Tracks names of different cosmologies.
     """
 
-class FiducialStorageCollection(CosmologyCollection):
+class FiducialStorageCollection(CosmologyAnalysisCollection):
     """
     Tracks names of different source configurations.
     """
@@ -210,16 +210,18 @@ def _get_abs_paths(config,section_option_l,config_file_path):
     config_file_dir = os.path.dirname(config_file_path)
 
     starting_dir = os.getcwd()
-    os.chdir(config_file_dir)
+    if config_file_dir != '':
+        os.chdir(config_file_dir)
     out = []
     for section, option in section_option_l:
         try:
-            path = os.normpath(config.get(section,option))
+            path = os.path.normpath(config.get(section,option))
         except:
             os.chdir(starting_dir)
             raise
         out.append(os.path.abspath(path))
-    os.chdir(starting_dir)
+    if config_file_dir != '':
+        os.chdir(starting_dir)
     return out
 
 def _get_paths_cosmo_config_paths(config, config_file_path):
@@ -233,7 +235,7 @@ def _get_paths_cosmo_config_paths(config, config_file_path):
                         ("FiducialCosmology","shear_cat_config")]
     paths = _get_abs_paths(config,section_option_l,config_file_path)
     sections,options = zip(*section_option_l)
-    dict_enties = zip(options,paths)
+    dict_entries = zip(options,paths)
 
     sampling_dict = dict(dict_entries[:4])
     fiducial_dict = dict(dict_entries[4:])
@@ -255,7 +257,7 @@ class CosmoCollectionConfigBuilder(object):
     @classmethod
     def from_config_file(cls,fname):
         config = ConfigParser.SafeConfigParser()
-        config.read(config_file)
+        config.read(fname)
         sampling_dict, fiducial_dict = _get_paths_cosmo_config_paths(config,
                                                                      fname)
 
