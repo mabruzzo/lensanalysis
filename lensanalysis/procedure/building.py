@@ -1,4 +1,5 @@
 import copy
+from itertools import chain
 
 from .conversions import ShearCatalogToShearMap, ShearMapToConvMap
 from .noise_addition import NoiseAdditionStep, CatalogShapeNoiseAdder
@@ -77,11 +78,17 @@ class AnalysisObjectList(object):
 
     def tolist(self):
         return copy.copy(self._l)
+
+    def __len__(self):
+        return len(self._l)
         
 def _determine_save_analysis_objects(save_config):
-    iterator = all_combinations(omit_analysis_objects = ["shear_cat"],
+    iterator = all_combinations(omit_analysis_objects = ["shear_cat",
+                                                         "peak_counts", 
+                                                         "peak_loc"],
                                 omit_descriptors = [DescriptorEnum.tomo])
-    func = lambda x: get_analysis_col_value(save_config,x)
+    iterator = chain(iterator,(((),"peak_counts"), ((),"peak_loc")))
+    func = lambda x: get_analysis_col_value(save_config,*x)
     return AnalysisObjectList(filter(func,iterator))
     
 def _check_build_peak_counting(save_config):
@@ -104,7 +111,7 @@ def _wrap_save_step(decorator_step, save_step, following_sequential_step):
     else:
         temp = CompositeProcedureStep()
         temp.add(save_step)
-        temp.add(feature_step)
+        temp.add(following_sequential_step)
         decorator_step.wrapped_step = temp
     return decorator_step
 
@@ -208,10 +215,11 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
                             storage_collection, objects_to_save):
 
     # first we see if we need to build peak counting
-
     if _check_build_peak_counting(save_config):
-        feature_step = _build_peak_counting(procedure_config, save_config,
-                                            storage_collection, objects_to_save)
+        feature_step = build_peak_counting(begin_object, 
+                                           procedure_config, save_config,
+                                           storage_collection, 
+                                           objects_to_save)
     else:
         feature_step = None
 
@@ -220,7 +228,8 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
 
     # create the step to generate the smoothed noisy convergence map
 
-    recent_step = build_smooth_noisy_convergence(begin, procedure_config,
+    recent_step = build_smooth_noisy_convergence(begin_object, 
+                                                 procedure_config,
                                                  save_config,
                                                  storage_collection,
                                                  objects_to_save,
@@ -230,8 +239,10 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
         return recent_step
 
     # create the step to generate the noisy shear map
-    recent_step = build_shear_conversion(begin, procedure_config, save_config,
-                                         storage_collection, objects_to_save,
+    recent_step = build_shear_conversion(begin_object, procedure_config, 
+                                         save_config,
+                                         storage_collection, 
+                                         objects_to_save,
                                          True, True, recent_step)
 
     if _equal_analysis_object(begin_object, ((),"shear_cat")):

@@ -69,12 +69,12 @@ parser.add_argument("--fiducial",dest = "fiducial", action = "store_true",
                             "the fiducial cosmology (rather than a sampled "
                             "cosmology."))
 parser.add_argument("--min",dest = "min_realization", action = "store",
-                    default = None,
+                    default = None, type = int,
                     help = ("Specify the minimum realization to process."
                             "Default is the maximum allowed realization to "
                             "be processed."))
 parser.add_argument("--max",dest = "max_realization", action = "store",
-                    default = None,
+                    default = None, type =int,
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
                             "realization to be processed."))
@@ -143,7 +143,7 @@ def _starting_procedure_step(cmd_args,name,analysis_storage,cosmo_storage_col):
     first_step = LoadCollection(loader)
     return begin, first_step
 
-def simple_realization_generator(min_realization,max_realizaiton):
+def simple_realization_generator(min_realization,max_realization):
     """
     max_realization is maximum inclusive.
     """
@@ -170,7 +170,7 @@ def _setup_generator(cmd_args,proc_config,use_mpi = False):
             max_realization = proc_config.get_max_realization()
 
         assert max_realization>= min_realization
-        return simple_realization_generator(min_realization,max_realizaiton)
+        return simple_realization_generator(min_realization,max_realization)
 
 def setup(cmd_args):
 
@@ -227,11 +227,11 @@ def setup(cmd_args):
 
     # build the remaining steps
     remaining_steps = build_procedure(begin_object, proc_config,
-                                      save_config, storage_collection)
-    first_step.wrapped_step = remaining_step
+                                      save_config, analysis_storage)
+    first_step.wrapped_step = remaining_steps
 
     procedure = SimpleProcedure()
-    procedure.add_step(first_step)
+    procedure.add(first_step)
 
     logging.info("Setting up the Generator")
     generator = _setup_generator(cmd_args,proc_config,use_mpi = False)

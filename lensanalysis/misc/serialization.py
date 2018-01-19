@@ -361,7 +361,7 @@ class FullShearCatFGLoader(_BaseFileGroupCollection):
             fname = self._pos_fname_formatter.format_fname(**kwargs)
         return '/'.join((self.root_dir,fname))
         
-    def loader(self,collection_id):
+    def load(self,collection_id):
         out = []
         for i in range(self._num_elements):
             fname = self._format_fname(collection_id,i+1)

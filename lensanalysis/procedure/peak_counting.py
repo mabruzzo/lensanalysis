@@ -1,4 +1,6 @@
-from procedure import ConversionProcedureStep
+import numpy as np
+
+from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
 
 class LocatePeaks(ConversionProcedureStep):

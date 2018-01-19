@@ -26,7 +26,7 @@ class ComponentProcedureStep(object):
 
     @classmethod
     def __subclasshook__(cls,C):
-        if cls is ComponentProceudureStep:
+        if cls is ComponentProcedureStep:
             if any("apply"  in B.__dict__ for B in C.__mro__):
                 return True
         return NotImplemented
@@ -41,7 +41,7 @@ class CompositeProcedureStep(ComponentProcedureStep):
         self._child_procedure_steps = []
 
     def add(self, procedure_step):
-        if not isinstance(procedural_step, ComponentProceudureStep):
+        if not isinstance(procedure_step, ComponentProcedureStep):
             raise ValueError("Only accepts obects with apply method")
         self._child_procedure_steps.append(procedure_step)
 
@@ -50,7 +50,7 @@ class CompositeProcedureStep(ComponentProcedureStep):
 
     def apply(self, data_object, packet):
         for procedure_step in self._child_procedure_steps:
-            proedure_step.apply(data_object, packet)
+            procedure_step.apply(data_object, packet)
 
 class Procedure(CompositeProcedureStep):
     __metaclass__ = ABCMeta
@@ -107,7 +107,9 @@ class IntermediateProcedureStep(ProcedureStepDecorator):
         return None
 
     def set_wrapped_step(self,value):
-        self._wrapped_step = wrapped_step
+        self._wrapped_step = value
+
+    wrapped_step = property(get_wrapped_step,set_wrapped_step)
 
     @abstractmethod
     def intermediate_operation(self,data_object,packet):
@@ -143,8 +145,10 @@ class ConversionProcedureStep(ProcedureStepDecorator):
         return None
 
     def set_wrapped_step(self,value):
-        self._wrapped_step = wrapped_step
+        self._wrapped_step = value
     
+    wrapped_step = property(get_wrapped_step,set_wrapped_step)
+
     @abstractmethod
     def conversion_operation(self,data_object,packet):
         pass
