@@ -101,6 +101,13 @@ class IntermediateProcedureStep(ProcedureStepDecorator):
     This would wrap around another procedure step.
     """
 
+    def get_wrapped_step(self):
+        if hasattr(self, self._wrapped_step):
+            return self._wrapped_step
+        return None
+
+    def set_wrapped_step(self,value):
+        self._wrapped_step = wrapped_step
 
     @abstractmethod
     def intermediate_operation(self,data_object,packet):
@@ -130,6 +137,14 @@ class ConversionProcedureStep(ProcedureStepDecorator):
     factored out to the abstract wrapped_step property
     """
 
+    def get_wrapped_step(self):
+        if hasattr(self, self._wrapped_step):
+            return self._wrapped_step
+        return None
+
+    def set_wrapped_step(self,value):
+        self._wrapped_step = wrapped_step
+    
     @abstractmethod
     def conversion_operation(self,data_object,packet):
         pass
@@ -143,25 +158,6 @@ class ConversionProcedureStep(ProcedureStepDecorator):
     @classmethod
     def __subclasshook__(cls,C):
         raise NotImplementedError
-
-    
-class ConversionProcedureStepGrouping(object):
-    """
-    Grouping of steps involving the result of the conversion of data objects 
-    between different abstract types
-    
-    Probably not the best way to go about implementing this idea, but the idea 
-    is that after converting between abstract types there are 2 classes of 
-    operations applied to the result:
-    1. processing of the product - saving, computing features
-    2. conversion to other abstract data types
-
-    The idea would be for this object to wrap around an instance of an 
-    implementation of a ConversionProcedureStep object, and manage the 
-    procedure step wrapped by that instance.
-    Specifically, that instance would wrap a CompositeProcedureStep object and 
-    an instance of this class would manage the entries in that object
-    """
 
         
 class AtomicProcedureStep(ComponentProcedureStep):

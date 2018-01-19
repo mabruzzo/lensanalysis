@@ -9,8 +9,10 @@ from lensanalysis.misc.analysis_collection import AnalysisProductCollection, \
     FeatureProductCollection, set_analysis_col_value, get_analysis_col_value
 from lensanalysis.misc.enum_definitions import DescriptorEnum
 from lensanalysis.misc.name_parser import SafeNameParser
-from lensanalysis.procedure.procedure import SimpleProcedure
 
+from lensanalysis.procedure.building import build_procedure
+from lensanalysis.procedure.io_step import LoadCollection
+from lensanalysis.procedure.procedure import SimpleProcedure, DataPacket
 
 """
 this script will post process mock shear catalogs.
@@ -37,9 +39,9 @@ parser = argparse.ArgumentParser(description = description)
 parser.add_argument("-v", "--verbose", dest = "verbose",
                     action = "store_true", default = False,
                     help="turn output verbosity")
-parser.add_argument("-f", dest = "force",
-                    action = "store_true", default = False,
-                    help="force past initial Warning Messages.")
+#parser.add_argument("-f", dest = "force",
+#                    action = "store_true", default = False,
+#                    help="force past initial Warning Messages.")
 parser.add_argument("-b", "--begin", dest = "begin", action="store",
                     help = "Specify where to start in the procedure")
 parser.add_argument("-p", "--procedure", dest = "procedure_config",
@@ -79,11 +81,7 @@ parser.add_argument("--max",dest = "max_realization", action = "store",
                             "realization to be processed."))
 
 
-def get_generator(min_realization,max_realizaiton,use_mpi = False):
-    """
-    max_realization is maximum inclusive.
-    """
-    pass
+
 
 def setup_saved_products_helper(in_progress, analysis_storage_collection,
                                 iterable):
@@ -125,7 +123,54 @@ def determine_saved_products(cmd_args, proc_config,
                                     proc_config.get_default_saved_products())
     return out
 
-def setup_procedure(cmd_args):
+
+def _starting_procedure_step(cmd_args,name,analysis_storage,cosmo_storage_col):
+    parser = SafeNameParser()
+
+    if cmd_args.begin is None:
+        begin = ((),"shear_cat")
+    else:
+        begin = parser.parse_name(cmd_args.begin)
+    if begin[1] == 'shear_cat':
+        assert len(begin[0]) == 0
+        loader = cosmo_storage_col.get_shear_cat_loader(name)
+    else:
+        loader = get_analysis_col_value(analysis_storage, *begin)
+        assert loader is not None
+
+    first_step = LoadCollection(loader)
+    return begin, first_step
+
+def simple_realization_generator(min_realization,max_realizaiton):
+    """
+    max_realization is maximum inclusive.
+    """
+    for i in range(min_realization,max_realization+1):
+        yield None, DataPacket(i)
+
+def _setup_generator(cmd_args,proc_config,use_mpi = False):
+    if use_mpi:
+        raise NotImplementedError("Not yet equipped for mpi")
+    else:
+        if cmd_args.min_realization is not None:
+            min_realization = cmd_args.min_realization
+            assert isinstance(min_realization, int)
+            assert min_realization >= proc_config.get_min_realization()
+        else:
+            min_realization = proc_config.get_min_realization()
+        assert min_realization > 0
+
+        if cmd_args.max_realization is not None:
+            max_realization = cmd_args.max_realization
+            assert isinstance(max_realization,int)
+            assert max_realization <= proc_config.get_max_realization()
+        else:
+            max_realization = proc_config.get_max_realization()
+
+        assert max_realization>= min_realization
+        return simple_realization_generator(min_realization,max_realizaiton)
+
+def setup(cmd_args):
 
     logging.info("Setting up the procedure")
     # first let's build the cosmo collection config builder
@@ -171,10 +216,24 @@ def setup_procedure(cmd_args):
 
 
     # finally, we move to actually building our procedure.
-    # start at the end with the features we compute and work our way backwards
     
     # we start with the features and work our way backwards
-    
+    begin_object, first_step = _starting_procedure_step(cmd_args,name,
+                                                        analysis_storage,
+                                                        cosmo_storage_col)
+
+    # build the remaining steps
+    remaining_steps = build_procedure(begin_object, proc_config,
+                                      save_config, storage_collection)
+    first_step.wrapped_step = remaining_step
+
+    procedure = SimpleProcedure()
+    procedure.add_step(first_step)
+
+    logging.info("Setting up the Generator")
+    generator = _setup_generator(cmd_args,proc_config,use_mpi = False)
+
+    return procedure,generator
 
 def driver(cmd_args):
     # create logger
@@ -190,7 +249,8 @@ def driver(cmd_args):
     conh.setFormatter(formatter_console)
     logger.addHandler(conh)
 
-    procedure = setup_procedure(cmd_args)
+    procedure,generator = setup(cmd_args)
+    procedure.apply_to_iterable(generator)
     
 
 
@@ -206,5 +266,5 @@ I guess there is a sequence of events
 if __name__ == '__main__':
     #Parse command arguments
     cmd_args = parser.parse_args()
-    print cmd_args.save
+    driver(cmd_args)
 
