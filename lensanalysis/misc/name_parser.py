@@ -38,7 +38,7 @@ def _parse_name(name, analysis_names):
     name_prefixes = name.split('_')[:-len_ref_split]
 
     descriptor_l = []
-    for prefix in prefixes:
+    for prefix in name_prefixes:
         for descriptor_name, descriptor in DescriptorEnum.__members__.items():
             aliases = descriptor_mapping[descriptor]
             if prefix in aliases:
@@ -48,7 +48,7 @@ def _parse_name(name, analysis_names):
                     raise ValueError(("{:s} descriptor specified multiple times"
                                       " in {:s}.").format(descriptor_name,
                                                           name))
-                decriptor_l.append(descriptor)
+                descriptor_l.append(descriptor)
     return tuple(descriptor_l), object_name
 
 
@@ -99,15 +99,15 @@ class SafeNameParser(NameParser):
                  extra_requirements = None):
         assert isinstance(analysis_descr_map, Mapping)
         self._analysis_descr_map = analysis_descr_map
-        
+        self.set_extra_requirements(extra_requirements)
+
+    def get_extra_requirements(self):
+        return self._extra_requirements
 
     def set_extra_requirements(self,extra_requirements):
         assert (isinstance(extra_requirements,Mapping)
                 or extra_requirements is None)
         self._extra_requirements = extra_requirements
-
-    def get_extra_requirementes(self):
-        return self._extra_requirements
 
     def remove_extra_requirements(self):
         self._extra_requirments = None
@@ -118,13 +118,14 @@ class SafeNameParser(NameParser):
         invalid_descr =_check_valid_descriptors(out[0], out[1],
                                                 self._analysis_descr_map,
                                                 must_contain = True)
+        extra_requirements = self.get_extra_requirements()
         if invalid_descr is not None:
             raise ValueError(("{:s} is not a valid descriptor of "
                               "{:s}.").format(str(invalid_descr),
                                               out[1]))
-        if self._extra_requirments is not None:
+        if extra_requirements is not None:
             invalid_descr =_check_valid_descriptors(out[0], out[1],
-                                                    self._extra_requirments,
+                                                    extra_requirements,
                                                     must_contain = False)
             if invalid_descr is not None:
                 raise ValueError(("{:s} is not a valid descriptor of "

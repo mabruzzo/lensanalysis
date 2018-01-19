@@ -3,6 +3,8 @@ from collections import OrderedDict
 import os
 import os.path
 
+from .storage_config import StorageConfig
+
 from ..misc.analysis_collection import AnalysisProductCollection, \
     ConvergenceMapProductCollection, ShearMapProductCollection, \
     FeatureProductCollection
@@ -14,7 +16,7 @@ def _load_single_storage_collection(path, storage_config_method, descriptions):
     storage = storage_config_method(descriptions,path)
     if storage is None:
         return None
-    new_path = os.path.normpath(storage.root_path)
+    new_path = os.path.normpath(storage.root_dir)
     if not os.path.isdir(new_path):
         # let's try to make a new path
         head,tail = os.path.split(new_path)
@@ -79,7 +81,7 @@ def _load_full_storage_collection(path,storage_config):
     fpc.peak_counts = _load_single_storage_collection(path,
                                                       storage_method,
                                                       [])
-    analysis_collection.feature_products=ksc
+    analysis_collection.feature_products=fpc
     return analysis_collection
 
 
@@ -149,7 +151,7 @@ class CosmologyAnalysisCollection(object):
         # create the directory
         new_path = os.path.join(self._root_path,name)
         os.mkdir(new_path)
-        temp = _load_full_storage_collection(self.root_path,
+        temp = _load_full_storage_collection(self._root_path,
                                              self._storage_config)
         if self._cache is not None:
             self._cache[name] = temp
@@ -164,7 +166,7 @@ class CosmologyAnalysisCollection(object):
             raise ValueError("Does not contain {:s}".format(name))
         
         path = os.path.join(self._root_path,name)
-        temp = _load_full_storage_collection(self.root_path,
+        temp = _load_full_storage_collection(self._root_path,
                                              self._storage_config)
         if self._cache is not None:
             self._cache[name] = temp
@@ -242,8 +244,9 @@ def _get_paths_cosmo_config_paths(config, config_file_path):
     return sampling_dict,fiducial_dict
 
 def _setup_config_parser(config_data):
-    storage_config = ConfigParser.SafeConfigParser()
-    storage_config.read(config_data["storage_config"])
+    #storage_config = ConfigParser.SafeConfigParser()
+    #storage_config.read(config_data["storage_config"])
+    storage_config = StorageConfig(config_data["storage_config"])
 
     shear_cat_config = ConfigParser.SafeConfigParser()
     shear_cat_config.read(config_data["shear_cat_config"])

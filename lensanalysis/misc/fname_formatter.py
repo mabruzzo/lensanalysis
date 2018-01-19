@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 import os.path
+import warnings
 
 class AbstractFnameFormatter(object):
     __metaclass__ = ABCMeta

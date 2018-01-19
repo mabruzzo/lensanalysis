@@ -46,11 +46,11 @@ def _get_attribute_tuple(descriptors, object_name):
             first = 'conv_map'
 
         if DescriptorEnum.noisy in descriptors:
-            if DescriptorEnum.smooth in descriptors:
+            if DescriptorEnum.smoothed in descriptors:
                 second = 'smoothed_noisy_map'
             else:
                 second = 'noisy_map'
-        elif DescriptorEnum.smooth in descriptors:
+        elif DescriptorEnum.smoothed in descriptors:
             second = 'smoothed_map'
         else:
             second = 'noiseless_map'

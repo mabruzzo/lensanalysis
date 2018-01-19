@@ -80,4 +80,6 @@ class ProcedureConfig(object):
 
     @classmethod
     def from_fname(cls,fname):
-        return cls(ConfigParser.SafeConfigParser(fname))
+        config_parser = ConfigParser.SafeConfigParser()
+        config_parser.read(fname)
+        return cls(config_parser)

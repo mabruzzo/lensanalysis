@@ -53,13 +53,13 @@ def _parse_descriptor(descriptors):
             raise NotImplementedError("Not Presently Equiped to handle "
                                       "tomographic data")
 
-        elif elem.lower() in _smoothing_descriptor:
+        elif elem.lower() in _smoothing_descriptors:
             if results[1]:
                 raise ValueError("smoothing descriptor mentioned more than "
                                  "once.")
             results[1] = True
 
-        elif elem.lower() == _noisy_descriptors:
+        elif elem.lower() in _noisy_descriptors:
             if results[2]:
                 raise ValueError("noisy descriptor mentioned more than "
                                  "once.")
@@ -83,7 +83,7 @@ def _descriptor_string_prefix(results):
     if results[1]:
         temp_l.append('smoothed')
     if results[2]:
-        temp_l.append('noisy'):
+        temp_l.append('noisy')
     return '_'.join(temp_l)
 
 def _check_create_storage(config,section,option,default = None):
@@ -104,15 +104,15 @@ def _check_create_storage(config,section,option,default = None):
         exist. By default this is set to None
     """
 
-    if not config.has_section(section_name):
-        message = "The [{:s}] section is missing.".format(section_name)
+    if not config.has_section(section):
+        message = "The [{:s}] section is missing.".format(section)
         raise ConfigParser.NoSectionError(message)
 
-    if not config.has_option(section_name,option):
+    if not config.has_option(section,option):
         if default is not None:
             # if default is None we will allow for the error
             return default
-    return config.getboolean(section_name,option)
+    return config.getboolean(section,option)
 
 def _option_builder(*args):
     temp = [arg for arg in args if arg is not None]
@@ -122,7 +122,8 @@ def _create_collection_storage(descriptors,root_dir,section_name,
                                config, core_option_name = None,
                                storage_option_suffix = None,
                                storage_dir_suffix = 'dir',
-                               storage_fname_suffix = 'fname'):
+                               storage_fname_suffix = 'fname',
+                               noiseless_prefix = True):
     """
     General Helper Function to help read in storage configuration.
 
@@ -154,6 +155,8 @@ def _create_collection_storage(descriptors,root_dir,section_name,
     decoded_arg = _parse_descriptor(descriptors)
     string_prefix = _descriptor_string_prefix(decoded_arg)
 
+    if not noiseless_prefix and string_prefix == "noiseless":
+        string_prefix = None
     make_storage_option = _option_builder(string_prefix, core_option_name,
                                           storage_option_suffix)
     make_storage = _check_create_storage(config, section_name,
@@ -168,7 +171,7 @@ def _create_collection_storage(descriptors,root_dir,section_name,
     dir_option_name = _option_builder(string_prefix, core_option_name,
                                       storage_dir_suffix)
     local_dir = config.get(section_name, dir_option_name)
-    storage_dir = '/'.join(root_dir,local_dir)
+    storage_dir = '/'.join((root_dir,local_dir))
 
     # Find the fname_template
     fname_option_name = _option_builder(string_prefix, core_option_name,
@@ -225,24 +228,26 @@ class StorageConfig(object):
                                           storage_fname_suffix = 'fname')
 
     def peak_loc_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noise'])
+        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
                                           core_option_name = "peak_loc",
                                           storage_option_suffix = None,
                                           storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname')
+                                          storage_fname_suffix = 'fname',
+                                          noiseless_prefix = False)
 
     def peak_counts_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noise'])
+        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
                                           core_option_name = "peak_counts",
                                           storage_option_suffix = None,
                                           storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname')
+                                          storage_fname_suffix = 'fname',
+                                          noiseless_prefix = False)
 
 
 def _set_subdir_binned_realization_defaults(config, section, prefix):

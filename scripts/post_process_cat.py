@@ -85,6 +85,7 @@ parser.add_argument("id",nargs=1,
 
 def setup_saved_products_helper(in_progress, analysis_storage_collection,
                                 iterable):
+    parser = SafeNameParser()
     for elem in cmd_args.save:
         descriptors,object_name = parser.parse_name(elem)
         if DescriptorEnum.tomo in descriptors:
@@ -96,7 +97,8 @@ def setup_saved_products_helper(in_progress, analysis_storage_collection,
             raise ValueError(("{:s}, {:s} does not have any storage object "
                               "initialized").format(str(descriptors),
                                                     object_name))
-        set_analysis_col_value(out, descriptors, object_name)
+        set_analysis_col_value(in_progress, descriptors, 
+                               object_name, True)
 
 def determine_saved_products(cmd_args, proc_config,
                              analysis_storage_collection):
@@ -188,9 +190,9 @@ def setup(cmd_args):
 
     name = cmd_args.id[0]
     if name in cosmo_storage_col:
-        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
-    else:
         analysis_storage = cosmo_storage_col.get_analysis_product_storage(name)
+    else:
+        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
 
     # NOW, you can let all of the other mpi tasks catch up.
 
@@ -206,7 +208,7 @@ def setup(cmd_args):
     # save the file.
     # while doing this check to ensure that such storage locations exist
     save_config = determine_saved_products(cmd_args, proc_config,
-                                           analysis_storage_collection)
+                                           analysis_storage)
 
     # now we do a lttle error checking
 
