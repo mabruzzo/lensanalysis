@@ -1,4 +1,5 @@
 from procedure import ConversionProcedureStep
+from ..misc.log import logprocedure
 
 class LocatePeaks(ConversionProcedureStep):
     """
@@ -6,6 +7,8 @@ class LocatePeaks(ConversionProcedureStep):
     """
 
     def conversion_operation(self,data_object,packet):
+        logprocedure.debug(("Locating peaks for realization "
+                            "{:d}").format(packet.data_id))
         out = []
         for elem in data_object:
             heights,positions = elem.locatePeaks(extent)
@@ -31,6 +34,10 @@ class BinPeaks(ConversionProcedureStep):
         self.bin_edges = bin_edges
 
     def conversion_operation(self,data_object,packet):
+        logprocedure.debug(("Binning peaks for realization "
+                            "{:d}").format(packet.data_id))
+        if len(data_object)>1:
+            raise RuntimeError("Need to update to work with different bins")
         out = []
         for peak_loc in data_object:
             hist, bin_edges = peak_loc.histogram(self.bin_edges)
