@@ -181,6 +181,7 @@ def setup(cmd_args):
     if cmd_args.fiducial:
         cosmo_storage_col = builder.get_fiducial_storage_collection()
     else:
+        print "Sampled"
         cosmo_storage_col = builder.get_sampled_storage_collection()
 
     # if using MPI, we need to ensure that all tasks wait for the first task to

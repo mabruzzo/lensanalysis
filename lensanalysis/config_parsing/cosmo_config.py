@@ -3,7 +3,7 @@ from collections import OrderedDict
 import os
 import os.path
 
-from .storage_config import StorageConfig
+from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
 
 from ..misc.analysis_collection import AnalysisProductCollection, \
     ConvergenceMapProductCollection, ShearMapProductCollection, \
@@ -175,9 +175,10 @@ class CosmologyAnalysisCollection(object):
     def get_shear_cat_loader(self,name):
         dir_path = self._shear_root_path.format(name)
         if not os.path.isdir(os.path.normpath(dir_path)):
-            raise ValueError("{:s} does not exist/ is not a directory")
+            raise ValueError(("{:s} does not exist/is not a "
+                              "directory").format(dir_path))
         temp = self._shear_cat_config
-        return temp.constructCompleeteShearCatLoader(dir_path)
+        return temp.constructCompleteShearCatLoader(dir_path)
 
     def __contains__(self,name):
         return os.path.isdir(os.path.join(self._root_path,name))
@@ -248,13 +249,15 @@ def _setup_config_parser(config_data):
     #storage_config.read(config_data["storage_config"])
     storage_config = StorageConfig(config_data["storage_config"])
 
-    shear_cat_config = ConfigParser.SafeConfigParser()
-    shear_cat_config.read(config_data["shear_cat_config"])
+    #shear_cat_config = ConfigParser.SafeConfigParser()
+    #shear_cat_config.read(config_data["shear_cat_config"])
+    shear_cat_config = ShearCatCollectionLoaderConfig(config_data["shear_cat_config"])
     return storage_config,shear_cat_config
 
 class CosmoCollectionConfigBuilder(object):
     def __init__(self, sampling_cosmology_config,fiducial_cosmology_config):
-        self._sampling_cosmology_config = sampling_cosmology_config
+        self._sampled_cosmology_config = sampling_cosmology_config
+
         self._fiducial_cosmology_config = fiducial_cosmology_config
 
     @classmethod
@@ -287,7 +290,7 @@ class CosmoCollectionConfigBuilder(object):
 
     def get_sampled_storage_collection(self,include_cache = False,
                                        cache_limit = None):
-        config_data = self._fiducial_cosmology_config
+        config_data = self._sampled_cosmology_config
         storage_config, shear_cat_config = _setup_config_parser(config_data)
 
         cache = None

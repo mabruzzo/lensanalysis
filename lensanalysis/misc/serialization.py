@@ -131,7 +131,7 @@ def _check_field_mapping(fname_formatter, num_elements, field_mapping):
                 return None
 
     # we can still have 2 fields if there is only 1 element
-    if len(remaining != 1):
+    if len(remaining) != 1:
         raise ValueError("fname_formatter should have 2 fields.")
     if "element_id" not in map_keys:
         raise ValueError("element_id must be a key in field_mapping.")

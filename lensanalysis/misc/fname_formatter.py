@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
+from collections import Sequence
 import os.path
 import warnings
 

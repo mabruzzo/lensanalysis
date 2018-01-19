@@ -12,7 +12,11 @@ def _set_defaults_dynamically(config, section, defaults):
         try:
             config.get(section,elem[0])
         except ConfigParser.NoOptionError:
-            config.set(section,elem[0],elem[1])
+            if isinstance(elem[1],str):
+                val = elem[1]
+            else:
+                val = str(elem[1])
+            config.set(section,elem[0],val)
 
 _tomo_descriptors = ["tomo","tomography","tomographic"]
 _smoothing_descriptors = ['smoothed','smooth']
@@ -255,43 +259,45 @@ def _set_subdir_binned_realization_defaults(config, section, prefix):
     We set the defaults in this way rather than the built-in way because to use 
     the built-in method we most know the prefixes ahead of time.
     """
-    defaults = [('_'.join(prefix,'subdir'), False),
-                ('_'.join(prefix,'subdir_min_loc'), 'binned_realizations'),
-                ('_'.join(prefix,'subdir_min_loc'), -1),
-                ('_'.join(prefix,'subdir_max_loc'), -1),
-                ('_'.join(prefix,'subdir_mid_loc'), -1)]
+    defaults = [('_'.join((prefix,'subdir')), False),
+                ('_'.join((prefix,'subdir_min_loc')), 
+                 'binned_realizations'),
+                ('_'.join((prefix,'subdir_min_loc')), -1),
+                ('_'.join((prefix,'subdir_max_loc')), -1),
+                ('_'.join((prefix,'subdir_mid_loc')), -1)]
     _set_defaults_dynamically(config,section,defaults)
 
 def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
                                                prefix):
     _set_subdir_binned_realization_defaults(config,section,prefix)
-    subdir_choice = '_'.join(prefix,'subdir')
+    subdir_choice = '_'.join((prefix,'subdir'))
 
-    if not config.getboolean(section,elem[0]):
+    if not config.getboolean(section,subdir_choice):
         return fname_formatter
 
-    format_option = config.get(section,'_'.join(prefix,'subdir_min_loc')) 
+    format_option = config.get(section,'_'.join((prefix,'subdir_format')))
     assert format_option == 'binned_realizations'
     
-    directory_template = config.get(section,'_'.join(prefix,'subdir_template'))
+    directory_template = config.get(section,'_'.join((prefix,
+                                                      'subdir_template')))
     realizations_per_bin=config.getint(section,
-                                       '_'.join(prefix,
-                                                'subdir_realizations_per_bin'))
+                                       '_'.join((prefix,
+                                                 'subdir_realizations_per_bin')))
 
     fields = [None, None, None]
 
-    iterable = [(config.getint(section,'_'.join(prefix,'subdir_min_loc')),
+    iterable = [(config.getint(section,'_'.join((prefix,'subdir_min_loc'))),
                  'min'),
-                (config.getint(section,'_'.join(prefix,'subdir_max_loc')),
+                (config.getint(section,'_'.join((prefix,'subdir_max_loc'))),
                  'max'),
-                (config.getint(section,'_'.join(prefix,'subdir_mid_loc')),
+                (config.getint(section,'_'.join((prefix,'subdir_mid_loc'))),
                  'mid')]
     for field_loc, field in iterable:
         
-        if min_loc != -1:
-            if 0<=min_loc < 3:
-                if fields[min_loc] is None:
-                    fields[min_loc] = 'min'
+        if field_loc != -1:
+            if 0<=field_loc < 3:
+                if fields[field_loc] is None:
+                    fields[field_loc] = 'min'
                 else:
                     raise ValueError("More than one field specified for the "
                                      "same location in the template")
@@ -308,16 +314,17 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
             fields = fields[:2]
     return RealizationBinnedSubdirectoryFormatter(directory_template,
                                                   fields,
-                                                  realizations_per_dir,
+                                                  realizations_per_bin,
                                                   fname_formatter,
                                                   "realization")
 
 def _construct_shear_fname_formatter(config, section):
     fname_template = config.get(section,"shear_cat_fname_template")
-    bin_loc = config.get(section,"shear_cat_fname_binning_loc")
+    bin_loc = config.getint(section,"shear_cat_fname_binning_loc")
     if bin_loc not in [0,1]:
         raise ValueError("shear_cat_fname_binning_loc must be 0 or 1")
-    realization_loc = config.get(section,"shear_cat_fname_realization_loc")
+    realization_loc = config.getint(section,
+                                    "shear_cat_fname_realization_loc")
     if realization_loc not in [0,1]:
         raise ValueError("shear_cat_fname_realization_loc must be 0 or 1")
     if realization_loc == bin_loc:
@@ -352,7 +359,7 @@ class ShearCatCollectionLoaderConfig(object):
         num_elements = self._config.getint("ShearCats","num_cat_bins")
         shear_formatter = _construct_shear_fname_formatter(self._config,
                                                            "ShearCats")
-        pos_formatter = _pos_fname_formatter(config,"ShearCats")
+        pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
                                       _normal_field_mapping, pos_formatter)
         return loader
