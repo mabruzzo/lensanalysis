@@ -1,0 +1,47 @@
+High Priority
+=============
+
+Debugging
+  - Figure out why "peak_count" get's turned on for saving when it's not
+    specified at the command line
+  - Figure out why the storage directories are not made within the cosmology
+    collection subdirectory
+
+New Features
+  - Add MPI support
+
+
+
+Low-Mid Priority
+================
+
+General
+  - Add a test suite
+
+Refactoring
+  - Centralize all parsing of object names & descriptors. Currently it's done
+    in at least 2 separate spots using 2 sets of functions
+  - Refactor DescriptorEnum so that it draws from the equivalent of python
+    3.6.4's enum.Flag class (https://docs.python.org/3/library/enum.html). This
+    would greatly streamline the process of checking equivalence of 2
+    combinations of flags. It may be possible to draw from the source code they
+    include on the webpage and subclass Enum from the enum34 library.
+  - Come up with a way to keep track of the analysis object names in accordance
+    with the open/closed principle
+  - refactor the building of the procedure to be in accordance with the open
+    closed principle
+  - Update the FnameFormatter class to take advantage of keyword arguments from
+    newstyle string formatting (need to make sure its possible to specify a
+    keyword argument that corresponds to an int and specify a minimum amount of
+    zero padding
+  - Allow for exclusive specification of Fiducial/Sampled Cosmology collections
+    (currently it requires both)
+
+New Features
+  - Ability to post-process single-z Convergence Map or a Shear Catalog from a
+    single shear catalog
+  - Ability to keep track of collections of analysis products with different
+    value characteristics in a given analysis collection (mainly different
+    smoothing scales & possibly different tomography bins, peak counting bins,
+    noise addition schemes)
+  - "Emulator-like Class" that interpolates the chi-squared values
