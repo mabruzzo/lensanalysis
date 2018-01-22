@@ -42,8 +42,9 @@ class ProcedureConfig(object):
                                       "smoothing_scale")
         unit = u.Unit(self._config.get("AnalysisOptions",
                                        "smoothing_unit"))
-
-        print "should check that the unit is an angle"
+        if unit.physical_type != "angle":
+            raise ValueError("smoothing_unit must be a unit in which angles "
+                             "are measured")
         return value*unit
 
     def get_min_realization(self):
@@ -60,8 +61,9 @@ class ProcedureConfig(object):
                                       "map_edge_angle")
         unit = u.Unit(self._config.get("ShearCatalogSpecific",
                                        "map_edge_angle_unit"))
-
-        print "should check that the unit is an angle"
+        if unit.physical_type != "angle":
+            raise ValueError("map_edge_angle_unit must be a unit in which "
+                             "angles are measured")
         return value*unit
 
 
