@@ -223,23 +223,3 @@ class RealizationBinnedSubdirectoryFormatter(SubdirectoryFnameFormatter):
                 args.append((bin_min+bin_max)/2)
         temp = self._directory_template.format(*args)
         return temp
-
-if __name__ == "__main__":
-    fname_formatter = BaseFnameFormatter("WLshear_cat_bin{:d}_{:04d}r.fits",
-                                         ("bin_num","realization"))
-    print
-    print fname_formatter.format_fname(**{"realization":27, "bin_num" : 4})
-    print fname_formatter.fields
-
-    full_formatter = RealizationBinnedSubdirectoryFormatter('{:d}-{:d}',
-                                                            ('min','max'),
-                                                            288,
-                                                            fname_formatter,
-                                                            'realization')
-    print full_formatter.fields
-    print full_formatter.format_fname(**{"realization":27, "bin_num" : 4})
-    print full_formatter.format_fname(**{"realization":287, "bin_num" : 1})
-    print full_formatter.format_fname(**{"realization":288, "bin_num" : 2})
-    print full_formatter.format_fname(**{"realization":289, "bin_num" : 3})
-    print full_formatter.format_fname(**{"realization":576, "bin_num" : 5})
-    print full_formatter.format_fname(**{"realization":577, "bin_num" : 4})
