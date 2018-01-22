@@ -283,7 +283,6 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
     realizations_per_bin=config.getint(section,
                                        '_'.join((prefix,
                                                  'subdir_realizations_per_bin')))
-
     fields = [None, None, None]
 
     iterable = [(config.getint(section,'_'.join((prefix,'subdir_min_loc'))),
@@ -297,7 +296,7 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
         if field_loc != -1:
             if 0<=field_loc < 3:
                 if fields[field_loc] is None:
-                    fields[field_loc] = 'min'
+                    fields[field_loc] = field
                 else:
                     raise ValueError("More than one field specified for the "
                                      "same location in the template")
