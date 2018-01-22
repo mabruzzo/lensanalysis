@@ -20,13 +20,13 @@ class LoadCollection(ConversionProcedureStep):
         if isinstance(collection_loader, CollectionLoader):
             self.collection_loader = collection_loader
         else:
-            print collection_loader
             raise TypeError("collection_storage must be an instance of a "
                             "(virtual) subclass of abc, CollectionLoader")
 
     def conversion_operation(self,data_object,packet):
         logprocedure.debug("Loading realization {:d}".format(packet.data_id))
-        return self.collection_loader.load(packet.data_id)
+        temp = self.collection_loader.load(packet.data_id)
+        return temp
 
 class SaveCollectionEntries(AtomicProcedureStep):
     """

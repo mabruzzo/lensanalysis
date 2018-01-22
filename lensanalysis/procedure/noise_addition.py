@@ -10,6 +10,7 @@ Defining classes to add noise.
 """
 
 from abc import ABCMeta, abstractmethod
+import warnings
 
 import numpy as np
 import astropy.table as tbl
@@ -69,15 +70,19 @@ class CatalogShapeNoiseAdder(NoiseAdder):
         range of a 32bit unsigned integer). Default is None.
     """
 
-    def __init__(self,start_seed=None):
+    def __init__(self,start_seed=None, inplace = False):
         _check_start_seed(start_seed)
         self.start_seed = start_seed
+        self.inplace = False
 
     def add_noise(self,data_object,map_id):
         logprocedure.debug(("Adding noise to Shear Catalog(s) of realization "
-                            "{:d}").format(packet.data_id))
-        seed = _generate_seed(start_seed,map_id)
-        return [catalog.shapeNoise(seed = seed) for catalog in data_object]
+                            "{:d}").format(map_id))
+        seed = _generate_seed(self.start_seed,map_id)
+        #return [catalog.shapeNoise(seed = seed) for catalog in data_object]
+        warnings.warn("NOT ADDING NOISE PROPERLY - CURRENTLY PASSING THROUGH "
+                      "THE NOISELESS OBJECT", RuntimeWarning)
+        return data_object
 
 class ConvMapNormalShapeNoiseAdder(NoiseAdder):
     """

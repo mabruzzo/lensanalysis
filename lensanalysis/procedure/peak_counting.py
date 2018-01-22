@@ -2,6 +2,7 @@ import numpy as np
 
 from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
+from ..misc.feature_object import PeakLocations
 
 class LocatePeaks(ConversionProcedureStep):
     """
@@ -13,6 +14,7 @@ class LocatePeaks(ConversionProcedureStep):
                             "{:d}").format(packet.data_id))
         out = []
         for elem in data_object:
+            extent = [elem.data.min(), elem.data.max()]
             heights,positions = elem.locatePeaks(extent)
             out.append(PeakLocations(heights = heights, locations = positions))
         return out

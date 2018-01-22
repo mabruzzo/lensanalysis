@@ -102,7 +102,7 @@ class IntermediateProcedureStep(ProcedureStepDecorator):
     """
 
     def get_wrapped_step(self):
-        if hasattr(self, self._wrapped_step):
+        if hasattr(self, "_wrapped_step"):
             return self._wrapped_step
         return None
 
@@ -117,9 +117,8 @@ class IntermediateProcedureStep(ProcedureStepDecorator):
 
     def apply(self, data_object,packet):
         result = self.intermediate_operation(data_object,packet)
-        self._apply_to_results(result,packet)
-        if wrapped_step is not None:
-            self.wrapped_step(result,packet)
+        if self.wrapped_step is not None:
+            self.wrapped_step.apply(result,packet)
 
 
 """
@@ -140,7 +139,7 @@ class ConversionProcedureStep(ProcedureStepDecorator):
     """
 
     def get_wrapped_step(self):
-        if hasattr(self, self._wrapped_step):
+        if hasattr(self,"_wrapped_step"):
             return self._wrapped_step
         return None
 
@@ -155,9 +154,8 @@ class ConversionProcedureStep(ProcedureStepDecorator):
 
     def apply(self, data_object,packet):
         result = self.conversion_operation(data_object,packet)
-        self._apply_to_results(result,packet)
-        if wrapped_step is not None:
-            self.wrapped_step(result,packet)
+        if self.wrapped_step is not None:
+            self.wrapped_step.apply(result,packet)
 
     @classmethod
     def __subclasshook__(cls,C):

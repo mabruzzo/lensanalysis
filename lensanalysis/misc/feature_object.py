@@ -1,3 +1,6 @@
+import numpy as np
+import astropy.units as u
+
 class FeatureObject(object):
     """
     Represents features extracted from (mock) lensing surveys.
@@ -18,7 +21,8 @@ class PeakLocations(FeatureObject):
     """
     def __init__(self, heights, locations):
         heights = np.array(heights)
-        locations = np.array(locations)
+        assert isinstance(locations,u.Quantity)
+        locations = u.Quantity(locations)
         if len(heights.shape)!=1:
             raise ValueError("heights must be 1D")
         if len(locations.shape)!=2:
@@ -36,11 +40,11 @@ class PeakLocations(FeatureObject):
 
     @property
     def heights(self):
-        return np.copy(self._heights)
+        return self._heights.copy()
 
     @property
     def locations(self):
-        return np.copy(self._locations)
+        return self._locations.copy()
 
     def histogram(self, bins = 10, range = None, normed = False,
                   weigths = None, density = None):

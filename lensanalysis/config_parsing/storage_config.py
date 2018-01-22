@@ -123,7 +123,8 @@ def _option_builder(*args):
     return '_'.join(temp)
 
 def _create_collection_storage(descriptors,root_dir,section_name,
-                               config, core_option_name = None,
+                               config, storage_class, 
+                               core_option_name = None,
                                storage_option_suffix = None,
                                storage_dir_suffix = 'dir',
                                storage_fname_suffix = 'fname',
@@ -191,9 +192,7 @@ def _create_collection_storage(descriptors,root_dir,section_name,
                                   "subdirectories.")
     else:
         fname_formatter = BaseFnameFormatter(fname_template,"realization")
-        result = ConvergenceMapCollectionFGStorage(fname_formatter,
-                                                   storage_dir, 1,
-                                                   field_mapping)
+        result = storage_class(fname_formatter, storage_dir, 1, field_mapping)
     return result
 
 class StorageConfig(object):
@@ -216,6 +215,7 @@ class StorageConfig(object):
         return _create_collection_storage(descriptors, root_dir,
                                           "ConvergenceMaps",
                                           self._config_parser,
+                                          ConvergenceMapCollectionFGStorage,
                                           core_option_name = None,
                                           storage_option_suffix = 'map',
                                           storage_dir_suffix = 'dir',
@@ -226,6 +226,7 @@ class StorageConfig(object):
         return _create_collection_storage(descriptors, root_dir,
                                           "ShearMaps",
                                           self._config_parser,
+                                          ShearMapCollectionFGStorage,
                                           core_option_name = None,
                                           storage_option_suffix = 'map',
                                           storage_dir_suffix = 'dir',
@@ -236,6 +237,7 @@ class StorageConfig(object):
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
+                                          PeakLocCollectionFGStorage,
                                           core_option_name = "peak_loc",
                                           storage_option_suffix = None,
                                           storage_dir_suffix = 'dir',
@@ -247,6 +249,7 @@ class StorageConfig(object):
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
+                                          PeakCountCollectionFGStorage,
                                           core_option_name = "peak_counts",
                                           storage_option_suffix = None,
                                           storage_dir_suffix = 'dir',
@@ -338,7 +341,7 @@ def _construct_shear_fname_formatter(config, section):
     return _build_subdir_binned_realization_formatter(fname_formatter, config,
                                                       section, 'shear_cat')
 def _pos_fname_formatter(config,section):
-    fname_template = config.get(section,"shear_cat_fname_template")
+    fname_template = config.get(section,"pos_cat_fname_template")
     return BaseFnameFormatter(fname_template, ["bin"])
 
 _normal_field_mapping = {"collection_id" : "realization",

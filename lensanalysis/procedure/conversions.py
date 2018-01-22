@@ -1,7 +1,10 @@
+import warnings
+
+import numpy as np
 import astropy.table as tbl
 from lenstools import ShearMap
 
-from procedure import ConversionProcedureStep
+from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
 
 class ShearCatalogToShearMap(ConversionProcedureStep):
@@ -43,16 +46,17 @@ class ShearCatalogToShearMap(ConversionProcedureStep):
             message = ("Pixelizing Shear Catalog(s) of realization {:d} into "
                        "shear maps.")
         logprocedure.debug(message.format(packet.data_id))
-            
+
         out = []
         if self.produce_single:
             catalogs = [tbl.vstack(data_object)]
         else:
             catalogs = data_object
-
+        print catalogs[0]
         for catalog in catalogs:
-            out.append(catalog.toMap(mapsize = self.map_size,
-                                     npixel = self.npixel, smooth = self.smooth,
+            out.append(catalog.toMap(map_size = self.map_size,
+                                     npixel = self.npixel, 
+                                     smooth = self.smooth,
                                      **self.kwargs))
         return out
 
@@ -64,6 +68,16 @@ class ShearMapToConvMap(ConversionProcedureStep):
         logprocedure.debug(("Converting shear map(s) into convergence map(s) "
                             "for realiztion {:d}").format(packet.data_id))
         out = [shear_map.convergence() for shear_map in data_object]
+        warnings.warn("SHEAR MAP IS CONVERTING TO CONV MAP OF NaNs. For now "
+                      "we are setting it to a random Gaussian", 
+                      RuntimeWarning)
+
+        for elem in out:
+            temp = elem.data
+            shape = temp.shape
+            new = np.random.uniform(size=shape)
+            new -= np.amin(new)
+            elem.data = new
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):

@@ -18,8 +18,8 @@ def write_peak_loc_npy(fname,peak_loc):
     heights = peak_loc.heights
     positions = (peak_loc.locations).to(u.degree).value
     array = np.column_stack((heights,
-                             positions[:,0].value,
-                             positions[:,1].value))
+                             positions[:,0],
+                             positions[:,1]))
     np.save(fname,array)
 
 def load_peak_loc_npy(fname):
@@ -238,10 +238,6 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
         for i,elem in enumerate(collection):
             fname = self._format_fname(collection_id,i+1)
             self.element_writer(fname,elem)
-            # except Writing error, we can try to create the necessary
-            # directories
-            # can get the directories needed from : self._fname_formatter
-            raise RuntimeError()
 
     def load(self,collection_id):
         if collection_id not in self:
@@ -268,23 +264,25 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
             return False
         return True
 
-
+_shear_map_writer = lambda fname, shear_map : shear_map.write(fname)
 class ShearMapCollectionFGStorage(FileGroupCollectionStorage):
     """
     File group storage subclass for shear map collections
     """
+    # note that element_writer can't be linked directly to the lambda function
+    # unless it takes an additional argument, self, in which case it will be 
+    # an instance method
+    element_writer = staticmethod(_shear_map_writer)
+    element_loader = staticmethod(ShearMap.load)
 
-    element_writer = lambda fname, shear_map : shear_map.write(fname)
-    element_loader = ShearMap.load
-
-
+_conv_map_writer = lambda fname, conv_map : conv_map.save(fname)
 class ConvergenceMapCollectionFGStorage(FileGroupCollectionStorage):
     """
     File group storage subclass for convergence map collections
     """
 
-    element_writer = lambda fname, conv_map : conv_map.save(fname)
-    element_loader = ConvergenceMap.load
+    element_writer = staticmethod(_conv_map_writer)
+    element_loader = staticmethod(ConvergenceMap.load)
 
 
 class PeakLocCollectionFGStorage(FileGroupCollectionStorage):
@@ -292,8 +290,8 @@ class PeakLocCollectionFGStorage(FileGroupCollectionStorage):
     File group storage subclass for peak location collections
     """
 
-    element_writer = write_peak_loc_npy
-    element_loader = load_peak_loc_npy
+    element_writer = staticmethod(write_peak_loc_npy)
+    element_loader = staticmethod(load_peak_loc_npy)
 
 
 class PeakCountCollectionFGStorage(FileGroupCollectionStorage):
@@ -301,8 +299,8 @@ class PeakCountCollectionFGStorage(FileGroupCollectionStorage):
     File group storage subclass for peak count collections
     """
 
-    element_writer = write_peak_count_npy
-    element_loader = load_peak_count_npy
+    element_writer = staticmethod(write_peak_count_npy)
+    element_loader = staticmethod(load_peak_count_npy)
 
 
 class FullShearCatFGLoader(_BaseFileGroupCollection):
@@ -365,7 +363,7 @@ class FullShearCatFGLoader(_BaseFileGroupCollection):
         out = []
         for i in range(self._num_elements):
             fname = self._format_fname(collection_id,i+1)
-            pos_fname = self._format_fname(collection_id,i+1)
+            pos_fname = self._format_pos_fname(i+1)
             try:
                 temp = ShearCatalog.readall([fname],[pos_fname])
             except:
