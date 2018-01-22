@@ -1,0 +1,17 @@
+The processing script was initially inspired by the realization that very 
+similar operations can be used post processing weak lensing products with 
+minor variations (i.e. if we are measuring peak counts or tomographic peak 
+counts). 
+
+The whole procedural step was conceived with the best of intentions, but I 
+think I got a little carried away. I think things are probably a little too 
+atomic.
+
+However, the whole collection storage potions turned out as well as I could 
+have hoped.
+
+In reality, it would probably be better to make the main procedure much less 
+flexible, but leave hooks after the creation of every analysis product 
+(such as Shear Map, Convergence Map, Noisy Convergence Map, Smoothed 
+Convergence Map, etc.) that allow for procedure steps to save the product and 
+calculate features.
