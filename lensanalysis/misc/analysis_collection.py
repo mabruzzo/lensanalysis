@@ -74,7 +74,7 @@ def _get_attribute_tuple(descriptors, object_name):
                 second = "tomo_peak_locations"
             else:
                 second = "peak_locations"
-        if DescriptorEnum.tomo in descriptors:
+        elif DescriptorEnum.tomo in descriptors:
             second = "tomo_peak_counts"
         else:
             second = "peak_counts"

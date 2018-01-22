@@ -2,8 +2,7 @@ High Priority
 =============
 
 Debugging
-  - Figure out why "peak_count" get's turned on for saving when it's not
-    specified at the command line
+  - Figure out why "peak_loc" is not being saved.
   - Figure out why the storage directories are not made within the cosmology
     collection subdirectory
 

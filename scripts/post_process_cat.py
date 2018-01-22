@@ -86,7 +86,8 @@ parser.add_argument("id",nargs=1,
 def setup_saved_products_helper(in_progress, analysis_storage_collection,
                                 iterable):
     parser = SafeNameParser()
-    for elem in cmd_args.save:
+
+    for elem in iterable:
         descriptors,object_name = parser.parse_name(elem)
         if DescriptorEnum.tomo in descriptors:
             raise NotImplementedError("Not currently equipped to handle "
@@ -210,7 +211,6 @@ def setup(cmd_args):
     # while doing this check to ensure that such storage locations exist
     save_config = determine_saved_products(cmd_args, proc_config,
                                            analysis_storage)
-
     # now we do a lttle error checking
 
     # check to see if we are going backwards in our procedure
