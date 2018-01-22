@@ -140,7 +140,7 @@ def build_peak_counting(begin, procedure_config, save_config,
 
     step = LocatePeaks()
 
-    if save_config.feature_products.peak_counts:
+    if save_config.feature_products.peak_locations:
         storage = storage_collection.feature_products.peak_locations
         save_step = SaveCollectionEntries(storage)
         objects_to_save.remove(((),"peak_loc"))
