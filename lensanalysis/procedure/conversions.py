@@ -6,6 +6,7 @@ from lenstools import ShearMap
 
 from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
+from ..masked_operations import convert_shear_to_convergence
 
 class ShearCatalogToShearMap(ConversionProcedureStep):
     """
@@ -55,7 +56,7 @@ class ShearCatalogToShearMap(ConversionProcedureStep):
         print catalogs[0]
         for catalog in catalogs:
             out.append(catalog.toMap(map_size = self.map_size,
-                                     npixel = self.npixel, 
+                                     npixel = self.npixel,
                                      smooth = self.smooth,
                                      **self.kwargs))
         return out
@@ -67,17 +68,8 @@ class ShearMapToConvMap(ConversionProcedureStep):
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into convergence map(s) "
                             "for realiztion {:d}").format(packet.data_id))
-        out = [shear_map.convergence() for shear_map in data_object]
-        warnings.warn("SHEAR MAP IS CONVERTING TO CONV MAP OF NaNs. For now "
-                      "we are setting it to a random Gaussian", 
-                      RuntimeWarning)
 
-        for elem in out:
-            temp = elem.data
-            shape = temp.shape
-            new = np.random.uniform(size=shape)
-            new -= np.amin(new)
-            elem.data = new
+        out = map(convert_shear_to_convergence, data_objects)
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):
