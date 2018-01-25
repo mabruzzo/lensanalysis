@@ -1,14 +1,10 @@
 High Priority
 =============
 
-New Features
-  - Add MPI support
+Make necessary edits to allow for tomography 
 
 Low-Mid Priority
 ================
-
-General
-  - Add a test suite
 
 Refactoring
   - Centralize all parsing of object names & descriptors. Currently it's done

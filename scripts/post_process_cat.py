@@ -1,5 +1,9 @@
 import argparse
 import logging
+import sys
+import traceback
+
+from mpi4py import MPI
 
 from lensanalysis.config_parsing.cosmo_config import \
     CosmoCollectionConfigBuilder
@@ -149,35 +153,105 @@ def simple_realization_generator(min_realization,max_realization):
     max_realization is maximum inclusive.
     """
     for i in range(min_realization,max_realization+1):
+        logging.info("Beginning Realization {:05d}".format(i))
         yield None, DataPacket(i)
 
-def _setup_generator(cmd_args,proc_config,use_mpi = False):
-    if use_mpi:
-        raise NotImplementedError("Not yet equipped for mpi")
+def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
+    
+    if cmd_args.min_realization is not None:
+        min_realization = cmd_args.min_realization
+        assert isinstance(min_realization, int)
+        assert min_realization >= proc_config.get_min_realization()
     else:
-        if cmd_args.min_realization is not None:
-            min_realization = cmd_args.min_realization
-            assert isinstance(min_realization, int)
-            assert min_realization >= proc_config.get_min_realization()
+        min_realization = proc_config.get_min_realization()
+    assert min_realization > 0
+        
+    if cmd_args.max_realization is not None:
+        max_realization = cmd_args.max_realization
+        assert isinstance(max_realization,int)
+        assert max_realization <= proc_config.get_max_realization()
+    else:
+        max_realization = proc_config.get_max_realization()
+
+    assert max_realization>= min_realization
+
+    if nprocs >1:
+        num_real = max_realization - min_realization +1
+        num_per_task = num_real // nprocs
+        cur_real = num_per_task
+        if (num_real%nprocs)>0:
+            if rank < (num_real%nprocs):
+                cur_real +=1
+                min_delta = rank*(num_per_task+1)
+            else:
+                min_delta = (num_real%nprocs)*(num_per_task+1)
+                min_delta += (rank-(num_real%nprocs))*num_per_task
         else:
-            min_realization = proc_config.get_min_realization()
-        assert min_realization > 0
+            min_delta = rank*(num_per_task)
+        min_r = min_realization+min_delta
+        max_r = min_r + cur_real-1
 
-        if cmd_args.max_realization is not None:
-            max_realization = cmd_args.max_realization
-            assert isinstance(max_realization,int)
-            assert max_realization <= proc_config.get_max_realization()
-        else:
-            max_realization = proc_config.get_max_realization()
+        if num_real<rank+1:
+            return None
+    else:
+        min_r = min_realization
+        max_r = max_realization
 
-        assert max_realization>= min_realization
-        return simple_realization_generator(min_realization,max_realization)
+    return simple_realization_generator(min_r,max_r)
 
-def setup(cmd_args):
+def _setup_mpi_helper(builder,comm):
+    """
+    This is a helper function that get's the storage collection. 
+
+    It has separated from the rest of the setup function because the master 
+    process must call this process while the other processes wait and then 
+    the other processes must call this. By doing this we can avoid issues 
+    where different processes try to write a directory at the same time.
+    """
+    if cmd_args.fiducial:
+        cosmo_storage_col = builder.get_fiducial_storage_collection()
+    else:
+        print "Sampled"
+        cosmo_storage_col = builder.get_sampled_storage_collection()
+    return cosmo_storage_col
+
+def setup(cmd_args,comm):
+    """
+    Parameters
+    ----------
+    cmd_args : dict
+        The dictionary of parsed command line arguments
+    comm : mpi4py.MPI.comm
+        The mpi communications object or None. If the value is None, then MPI 
+        is not in use.
+    """
 
     logging.info("Setting up the procedure")
     # first let's build the cosmo collection config builder
     builder = CosmoCollectionConfigBuilder.from_config_file(cmd_args.config)
+
+    if comm is None:
+        nprocs = 1
+        rank = 0 
+    else:
+        nprocs = comm.Get_size()
+        rank = comm.Get_rank()
+
+    if nprocs == 1:
+        cosmo_storage_col = _setup_mpi_helper(builder,comm)
+    else:
+        rank = comm.Get_rank()
+        # check an possible create the directories on rank 0.
+        # The other tasks will wait around while this is going on
+        if rank == 0:
+            cosmo_storage_col = _setup_mpi_helper(builder,comm)
+        comm.Barrier()
+
+        # now the other tasks with locate the directories. Rank 0 is free to 
+        # move on since there is no possibility of an error occuring due to 
+        # creating directories in the same place at the same time.
+        if rank != 0:
+            cosmo_storage_col = _setup_mpi_helper(builder,comm)
 
     if cmd_args.fiducial:
         cosmo_storage_col = builder.get_fiducial_storage_collection()
@@ -234,8 +308,10 @@ def setup(cmd_args):
     procedure.add(first_step)
 
     logging.info("Setting up the Generator")
-    generator = _setup_generator(cmd_args,proc_config,use_mpi = False)
+    # the barrier is here for debugging
 
+    generator = _setup_generator(cmd_args, proc_config,
+                                 nprocs = nprocs, rank = rank)
     return procedure,generator
 
 def driver(cmd_args):
@@ -244,9 +320,26 @@ def driver(cmd_args):
 	logging.basicConfig(level = logging.DEBUG)
     else:
         logging.basicConfig(level = logging.INFO)
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    nprocs = comm.Get_size()
+    if nprocs == 1:
+        comm = None
+    print "CHECKPOINT A"
 
-    procedure,generator = setup(cmd_args)
-    procedure.apply_to_iterable(generator)
+    if comm is not None:
+        try:
+            procedure,generator = setup(cmd_args,comm)
+            if generator is None:
+                return None
+            procedure.apply_to_iterable(generator)
+        except:
+            print "Unexpected error on rank {:d}:".format(rank)
+            print traceback.print_exception(*sys.exc_info())
+            MPI.COMM_WORLD.Abort(1)
+    else:
+        procedure,generator = setup(cmd_args,comm)
+        procedure.apply_to_iterable(generator)
     
 
 
