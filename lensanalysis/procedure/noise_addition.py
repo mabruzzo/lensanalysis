@@ -43,10 +43,15 @@ def _check_start_seed(start_seed):
                               "maximum value of a 32 bit unsigned integer.")
                              % int(_uii32.max))
 
-def _generate_seed(start_seed,map_id):
+def _generate_seed(start_seed,map_id,elem_id,num_elem):
     if start_seed is None:
         return start_seed
-    seed = start_seed + map_id
+    if num_elem == 0:
+        delta = map_id
+    else:
+        delta = map_id*num_elem + elem_id
+
+    seed = start_seed + delta
     if seed > _uii32.max:
         seed = (seed%_uii32.max)
     return seed
@@ -60,7 +65,11 @@ class CatalogShapeNoiseAdder(NoiseAdder):
     maximum value of an 32bit unsigned integer (the maximum value in the range 
     of seeds, we have it wrap around)
 
-    May want to revist
+    A single instance of this object is only meant to be used to add noise to 
+    collections of shear maps of fixed size. If we choose to have unique 
+    seeds for each shear map, then we internally track the size of the 
+    collections the first time we actually add noise. An error will be raised 
+    if any further collection has a different number of items.
 
     Parameters
     ----------
@@ -68,21 +77,65 @@ class CatalogShapeNoiseAdder(NoiseAdder):
         Starting seed to which map_id is added. If this is None, then the seed 
         is not set. It needs to lie within the region of allowed seeds (the 
         range of a 32bit unsigned integer). Default is None.
+    diff_seed_elem : bool
+        Whether or not to use a different seed for different shear maps in a 
+        data_collection. If this is true, then we strictly require that all 
+        catalog collections we add noise to are the same size. Default is 
+        False.
+    rs_correction : bool
+        Include denominator (1+g*es) in the shear correction. Default is True.
+    inplace : bool
+        If the data objects should be modified in place. Default is False.
     """
 
-    def __init__(self,start_seed=None, inplace = False):
+    def __init__(self,start_seed=None, diff_seed_elem = False, 
+                 rs_correction = True, inplace = False):
         _check_start_seed(start_seed)
         self.start_seed = start_seed
-        self.inplace = False
+        self.inplace = inplace
+        
+        self.diff_seed_elem = diff_seed_elem
+        if diff_seed_elem:
+            self._num_elem = None
+        else:
+            self._num_elem = 0
+
+        self.rs_correction = rs_correction
 
     def add_noise(self,data_object,map_id):
         logprocedure.debug(("Adding noise to Shear Catalog(s) of realization "
                             "{:d}").format(map_id))
-        seed = _generate_seed(self.start_seed,map_id)
-        #return [catalog.shapeNoise(seed = seed) for catalog in data_object]
-        warnings.warn("NOT ADDING NOISE PROPERLY - CURRENTLY PASSING THROUGH "
-                      "THE NOISELESS OBJECT", RuntimeWarning)
-        return data_object
+        start_seed = self.start_seed
+        inplace = self.inplace
+        if self._num_elem is None:
+            self._num_elem = len(data_object)
+        elif self._num_elem>0:
+            assert number_elem == len(data_object)
+        number_elem = self._num_elem
+        rs_correction = self.rs_correction
+
+
+        out = []
+        for i,catalog in enumerate(data_object):
+            seed = _generate_seed(start_seed,map_id,i,number_elem)
+            noise = catalog.shapeNoise(seed)
+            if not inplace:
+                # we are trying to trying to maintain the original data 
+                # without making copies
+                result = catalog.copy(copy_data = False)
+                result.remove_columns(["shear1","shear2"])
+            else:
+                result = catalog
+
+            temp =catalog.addSourceEllipticity(noise, 
+                                                 es_colnames = ("shear1",
+                                                                "shear2"),
+                                                 rs_correction = rs_correction,
+                                                 inplace = False)
+            result["shear1"] = temp["shear1"]
+            result["shear2"] = temp["shear2"]
+            out.append(result)
+        return out
 
 class ConvMapNormalShapeNoiseAdder(NoiseAdder):
     """
@@ -125,11 +178,6 @@ class ConvMapNormalShapeNoiseAdder(NoiseAdder):
                                      shape = shape)
             out.append(conv_map + noise)
         return out
-
-class CatalogSourceEllipticityAdder(NoiseAdder):
-    """
-    Generate a collection of shear catalogs with intrinsic source ellipticities.
-    """
 
 
 class NoiseAdditionStep(IntermediateProcedureStep):

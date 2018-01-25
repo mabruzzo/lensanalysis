@@ -30,12 +30,14 @@ def convert_shear_to_convergence(shear_map, map_mask=None, fill = 0):
         mask = map_mask
 
     assert isinstance(fill,(int,float))
-    shear_map.data[mask] = 0.0
+    shear_map.data[0][mask] = 0.0
+    shear_map.data[1][mask] = 0.0
 
     conv_map = shear_map.convergence()
     conv_map.mask(np.logical_not(mask).astype(np.int8),
                   inplace = True)
-    shear_map[mask] = np.nan
+    shear_map.data[0][mask] = np.nan
+    shear_map.data[1][mask] = np.nan
     return conv_map
 
 def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
@@ -65,7 +67,8 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
     """
 
 
-    assert scale_angle.unit.physical_type==self.side_angle.unit.physical_type
+    assert (scale_angle.unit.physical_type ==
+            conv_map.side_angle.unit.physical_type)
 
     mask = np.isnan(conv_map.data)
     # convert smoothing_scale from units of angle to units of pixels.
@@ -75,9 +78,10 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
 
     if truncate == 4.0:
             kernel = Gaussian2DKernel(sigma_pix)
-        else:
-            raise NotImplementedError("Not currently equipped to handle other "
-                                      "truncation sizes")
+            print kernel
+    else:
+        raise NotImplementedError("Not currently equipped to handle other "
+                                  "truncation sizes")
     if kind == 'gaussian':
         temp = convolve(conv_map.data,kernel,nan_treatment = nan_treatment,
                         **kwargs)
@@ -88,17 +92,17 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
 
     if not conv_map._masked:
         preserve_mask = False
-
+    
     if preserve_mask:
         temp[mask] = np.nan
         
     if inplace:
         conv_map.data = temp
-        if hasattr(conv_map,"gradient_x") or hasattr(conv_map,"gradient_y")):
+        if hasattr(conv_map,"gradient_x") or hasattr(conv_map,"gradient_y"):
 	    conv_map.gradient()
 
-	if ((hasattr(conv_map,"hessian_xx") or hasattr(conv_map,"hessian_yy")
-             or hasattr(conv_map,"hessian_xy")):
+	if (hasattr(conv_map,"hessian_xx") or hasattr(conv_map,"hessian_yy")
+            or hasattr(conv_map,"hessian_xy")):
 	    conv_map.hessian()
 			
         return None
@@ -107,6 +111,9 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
         for attribute in conv_map._extra_attributes:
             kwargs[attribute] = getattr(conv_map,attribute)
 
-        return conv_map.__class__(temp, conv_map.side_angle,
-                                  masked = preserve_mask, **kwargs)
-
+        temp =  conv_map.__class__(temp, conv_map.side_angle,
+                                   masked = preserve_mask, **kwargs)
+        if preserve_mask:
+            temp.mask(np.logical_not(mask).astype(np.int8),
+                      inplace = True)
+        return temp

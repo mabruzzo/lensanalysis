@@ -241,9 +241,9 @@ def setup(cmd_args):
 def driver(cmd_args):
     # set Verbosity level
     if cmd_args.verbose:
-	logger.setLevel(logging.DEBUG)
+	logging.basicConfig(level = logging.DEBUG)
     else:
-        logger.setLevel(logging.INFO)
+        logging.basicConfig(level = logging.INFO)
 
     procedure,generator = setup(cmd_args)
     procedure.apply_to_iterable(generator)

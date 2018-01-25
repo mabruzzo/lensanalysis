@@ -53,7 +53,7 @@ class ShearCatalogToShearMap(ConversionProcedureStep):
             catalogs = [tbl.vstack(data_object)]
         else:
             catalogs = data_object
-        print catalogs[0]
+
         for catalog in catalogs:
             out.append(catalog.toMap(map_size = self.map_size,
                                      npixel = self.npixel,
@@ -69,7 +69,8 @@ class ShearMapToConvMap(ConversionProcedureStep):
         logprocedure.debug(("Converting shear map(s) into convergence map(s) "
                             "for realiztion {:d}").format(packet.data_id))
 
-        out = map(convert_shear_to_convergence, data_objects)
+        out = map(convert_shear_to_convergence, data_object)
+        print out[0].data
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):

@@ -1,6 +1,6 @@
 from procedure import IntermediateProcedureStep
 from ..misc.log import logprocedure
-from ..masked_operation import smooth_conv_map
+from ..masked_operations import smooth_conv_map
 
 class ConvMapSmoothing(IntermediateProcedureStep):
     """
@@ -18,7 +18,7 @@ class ConvMapSmoothing(IntermediateProcedureStep):
     """
     def __init__(self,scale_angle, kind = "gaussian", **kwargs):
         self.scale_angle = scale_angle
-        self.kind = "gaussian"
+        self.kind = "gaussianfft"
         self.kwargs = kwargs
 
     def intermediate_operation(self,data_object,packet):

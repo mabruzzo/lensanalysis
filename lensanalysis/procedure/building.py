@@ -1,5 +1,6 @@
 import copy
 from itertools import chain
+import warnings
 
 from .conversions import ShearCatalogToShearMap, ShearMapToConvMap
 from .noise_addition import NoiseAdditionStep, CatalogShapeNoiseAdder
@@ -204,8 +205,15 @@ def build_shear_conversion(begin, procedure_config, save_config,
     if not noisy:
         return second_step
 
+    warnings.warn("Currently the noise additon occurs forcing different seeds"
+                  "for shear catalogs in the same realization, does not add "
+                  "noise in place and does not include the rs_correction.",
+                  RuntimeWarning)
     start_seed = procedure_config.get_noise_seed()
-    out = NoiseAdditionStep(CatalogShapeNoiseAdder(start_seed))
+    out = NoiseAdditionStep(CatalogShapeNoiseAdder(start_seed,
+                                                   diff_seed_elem = True,
+                                                   rs_correction = False,
+                                                   inplace = False))
     out.wrapped_step = second_step
     return out
     
