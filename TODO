@@ -1,15 +1,8 @@
 High Priority
 =============
 
-Debugging
-  - Figure out why "peak_loc" is not being saved.
-  - Figure out why the storage directories are not made within the cosmology
-    collection subdirectory
-
 New Features
   - Add MPI support
-
-
 
 Low-Mid Priority
 ================

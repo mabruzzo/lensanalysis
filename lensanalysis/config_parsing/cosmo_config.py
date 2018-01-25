@@ -151,7 +151,7 @@ class CosmologyAnalysisCollection(object):
         # create the directory
         new_path = os.path.join(self._root_path,name)
         os.mkdir(new_path)
-        temp = _load_full_storage_collection(self._root_path,
+        temp = _load_full_storage_collection(new_path,
                                              self._storage_config)
         if self._cache is not None:
             self._cache[name] = temp
@@ -166,7 +166,7 @@ class CosmologyAnalysisCollection(object):
             raise ValueError("Does not contain {:s}".format(name))
         
         path = os.path.join(self._root_path,name)
-        temp = _load_full_storage_collection(self._root_path,
+        temp = _load_full_storage_collection(path,
                                              self._storage_config)
         if self._cache is not None:
             self._cache[name] = temp

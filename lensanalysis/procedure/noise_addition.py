@@ -4,7 +4,6 @@ Defining classes to add noise.
 
  - Might want to create look up tables in which we can register additional 
    noise adders.
- - May also want to give additional thought to how we generate seeds 
  - May want to add a NoiseAdder that loads previously computed noise maps
 
 """
@@ -110,7 +109,7 @@ class CatalogShapeNoiseAdder(NoiseAdder):
         if self._num_elem is None:
             self._num_elem = len(data_object)
         elif self._num_elem>0:
-            assert number_elem == len(data_object)
+            assert self._num_elem == len(data_object)
         number_elem = self._num_elem
         rs_correction = self.rs_correction
 

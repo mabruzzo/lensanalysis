@@ -70,7 +70,6 @@ class ShearMapToConvMap(ConversionProcedureStep):
                             "for realiztion {:d}").format(packet.data_id))
 
         out = map(convert_shear_to_convergence, data_object)
-        print out[0].data
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):

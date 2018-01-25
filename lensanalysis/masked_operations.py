@@ -72,13 +72,12 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
 
     mask = np.isnan(conv_map.data)
     # convert smoothing_scale from units of angle to units of pixels.
-    sigma_pix = (scale_angle
-                 * (conv_map.data.shape[0] / conv_map.side_angle)).value
+    sigma_pix = (scale_angle * conv_map.data.shape[0] 
+                 / conv_map.side_angle).decompose().value
     assert sigma_pix > 0
 
     if truncate == 4.0:
             kernel = Gaussian2DKernel(sigma_pix)
-            print kernel
     else:
         raise NotImplementedError("Not currently equipped to handle other "
                                   "truncation sizes")
