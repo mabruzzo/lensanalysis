@@ -264,7 +264,7 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
             return False
         return True
 
-_shear_map_writer = lambda fname, shear_map : shear_map.write(fname)
+_shear_map_writer = lambda fname, shear_map : shear_map.save(fname)
 class ShearMapCollectionFGStorage(FileGroupCollectionStorage):
     """
     File group storage subclass for shear map collections

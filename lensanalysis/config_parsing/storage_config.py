@@ -159,7 +159,6 @@ def _create_collection_storage(descriptors,root_dir,section_name,
 
     decoded_arg = _parse_descriptor(descriptors)
     string_prefix = _descriptor_string_prefix(decoded_arg)
-
     if not noiseless_prefix and string_prefix == "noiseless":
         string_prefix = None
     make_storage_option = _option_builder(string_prefix, core_option_name,

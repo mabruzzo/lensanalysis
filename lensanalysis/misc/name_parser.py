@@ -29,7 +29,8 @@ def _parse_name(name, analysis_names):
             object_name = ref_name
             break
     else:
-        raise ValueError("{:s} matches no known analysis object name")
+        raise ValueError(("{:s} matches no known analysis object "
+                          "name").format(name))
     
     if ref_length == len(name):
         return (), name
