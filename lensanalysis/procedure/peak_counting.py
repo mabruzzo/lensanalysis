@@ -14,7 +14,7 @@ class LocatePeaks(ConversionProcedureStep):
                             "{:d}").format(packet.data_id))
         out = []
         for elem in data_object:
-            extent = [elem.data.min(), elem.data.max()]
+            extent = [np.nanmin(elem.data), np.nanmax(elem.data)]
             heights,positions = elem.locatePeaks(extent)
             out.append(PeakLocations(heights = heights, locations = positions))
         return out
