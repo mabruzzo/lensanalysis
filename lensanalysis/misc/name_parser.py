@@ -1,6 +1,6 @@
 from collections import Mapping
 
-from enum_definitions import DescriptorEnum, descriptor_mapping, \
+from enum_definitions import Descriptor, descriptor_mapping, \
     analysis_object_descriptors
 
 def _parse_name(name, analysis_names):
@@ -40,7 +40,7 @@ def _parse_name(name, analysis_names):
 
     descriptor_l = []
     for prefix in name_prefixes:
-        for descriptor_name, descriptor in DescriptorEnum.__members__.items():
+        for descriptor_name, descriptor in Descriptor.__members__.items():
             aliases = descriptor_mapping[descriptor]
             if prefix in aliases:
                 # this means that we need to add the descriptor to the

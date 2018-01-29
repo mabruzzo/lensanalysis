@@ -1,4 +1,4 @@
-from enum_definitions import DescriptorEnum
+from enum_definitions import Descriptor
 
 class AnalysisProductCollection(object):
     """
@@ -40,28 +40,28 @@ class FeatureProductCollection(object):
 
 def _get_attribute_tuple(descriptors, object_name):
     if object_name == "conv_map":
-        if DescriptorEnum.tomo in descriptors:
+        if Descriptor.tomo in descriptors:
             first = 'tomo_conv_map'
         else:
             first = 'conv_map'
 
-        if DescriptorEnum.noisy in descriptors:
-            if DescriptorEnum.smoothed in descriptors:
+        if Descriptor.noisy in descriptors:
+            if Descriptor.smoothed in descriptors:
                 second = 'smoothed_noisy_map'
             else:
                 second = 'noisy_map'
-        elif DescriptorEnum.smoothed in descriptors:
+        elif Descriptor.smoothed in descriptors:
             second = 'smoothed_map'
         else:
             second = 'noiseless_map'
 
     elif object_name == "shear_map":
-        if DescriptorEnum.tomo in descriptors:
+        if Descriptor.tomo in descriptors:
             first = 'tomo_shear_map'
         else:
             first = 'shear_map'
 
-        if DescriptorEnum.noisy in descriptors:
+        if Descriptor.noisy in descriptors:
             second = 'noisy_map'
         else:
             second = 'noiseless_map'
@@ -70,11 +70,11 @@ def _get_attribute_tuple(descriptors, object_name):
         first = 'feature_products'
 
         if object_name == "peak_loc":
-            if DescriptorEnum.tomo in descriptors:
+            if Descriptor.tomo in descriptors:
                 second = "tomo_peak_locations"
             else:
                 second = "peak_locations"
-        elif DescriptorEnum.tomo in descriptors:
+        elif Descriptor.tomo in descriptors:
             second = "tomo_peak_counts"
         else:
             second = "peak_counts"

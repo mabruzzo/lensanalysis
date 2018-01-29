@@ -11,7 +11,7 @@ from lensanalysis.config_parsing.procedure_config import ProcedureConfig
 from lensanalysis.misc.analysis_collection import AnalysisProductCollection, \
     ConvergenceMapProductCollection, ShearMapProductCollection, \
     FeatureProductCollection, set_analysis_col_value, get_analysis_col_value
-from lensanalysis.misc.enum_definitions import DescriptorEnum
+from lensanalysis.misc.enum_definitions import Descriptor
 from lensanalysis.misc.log import logger
 from lensanalysis.misc.name_parser import SafeNameParser
 
@@ -93,7 +93,7 @@ def setup_saved_products_helper(in_progress, analysis_storage_collection,
 
     for elem in iterable:
         descriptors,object_name = parser.parse_name(elem)
-        if DescriptorEnum.tomo in descriptors:
+        if Descriptor.tomo in descriptors:
             raise NotImplementedError("Not currently equipped to handle "
                                       "tomography")
         storage = get_analysis_col_value(analysis_storage_collection,

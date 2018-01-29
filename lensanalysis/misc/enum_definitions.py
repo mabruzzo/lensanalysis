@@ -1,28 +1,30 @@
 from itertools import chain, combinations, izip_longest
 
-from enum import Enum
+from aenum import Flag, auto
 
-
-
-# in python 3 it would be better to use the Flag subclass of enum
-class DescriptorEnum(Enum):
+class Descriptor(Flag):
+    none = 0
     tomo = 1
     smoothed = 2
-    noisy = 3
+    noisy = 4
+    tomo_smoothed = tomo | smoothed
+    tomo_noisy = tomo | noisy
+    smoothed_noisy = smoothed | noisy
+    tomo_smoothed_noisy = tomo | smoothed_noisy
 
 # gives the valid descriptors for the different analysis objects
-analysis_object_descriptors = {"conv_map" : (DescriptorEnum.tomo,
-                                             DescriptorEnum.smoothed,
-                                             DescriptorEnum.noisy),
-                               "shear_map" : (DescriptorEnum.tomo,
-                                              DescriptorEnum.noisy),
+analysis_object_descriptors = {"conv_map" : (Descriptor.tomo,
+                                             Descriptor.smoothed,
+                                             Descriptor.noisy),
+                               "shear_map" : (Descriptor.tomo,
+                                              Descriptor.noisy),
                                "shear_cat" : (),
-                               "peak_loc" : (DescriptorEnum.tomo,),
-                               "peak_counts" : (DescriptorEnum.tomo,)}
+                               "peak_loc" : (Descriptor.tomo,),
+                               "peak_counts" : (Descriptor.tomo,)}
 
-descriptor_mapping = {DescriptorEnum.tomo : ["tomo","tomographic"],
-                      DescriptorEnum.smoothed : ["smooth","smoothed"],
-                      DescriptorEnum.noisy : ["noisy"]}
+descriptor_mapping = {Descriptor.tomo : ["tomo","tomographic"],
+                      Descriptor.smoothed : ["smooth","smoothed"],
+                      Descriptor.noisy : ["noisy"]}
 
 def all_combinations(omit_analysis_objects = [], omit_descriptors = []):
     out = ()
@@ -46,4 +48,3 @@ def all_combinations(omit_analysis_objects = [], omit_descriptors = []):
 
 if __name__ == '__main__':
     print list(all_combinations(["shear_cat"]))
-

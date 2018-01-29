@@ -9,7 +9,7 @@ from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
 from ..misc.analysis_collection import get_analysis_col_value
-from ..misc.enum_definitions import DescriptorEnum, all_combinations
+from ..misc.enum_definitions import Descriptor, all_combinations
 
 def _equal_analysis_object(object_tuple1, object_tuple2):
     assert len(object_tuple1) == 2
@@ -23,9 +23,9 @@ def _equal_analysis_object(object_tuple1, object_tuple2):
 
 shear_cat = {}
 
-_noisy = (DescriptorEnum.noisy,)
-_smooth = (DescriptorEnum.smoothed,)
-_noisy_smooth = (DescriptorEnum.noisy, DescriptorEnum.smoothed)
+_noisy = (Descriptor.noisy,)
+_smooth = (Descriptor.smoothed,)
+_noisy_smooth = (Descriptor.noisy, Descriptor.smoothed)
 
 class AnalysisObjectList(object):
     def __init__(self,iterable = []):
@@ -76,7 +76,7 @@ def _determine_save_analysis_objects(save_config):
     iterator = all_combinations(omit_analysis_objects = ["shear_cat",
                                                          "peak_counts", 
                                                          "peak_loc"],
-                                omit_descriptors = [DescriptorEnum.tomo])
+                                omit_descriptors = [Descriptor.tomo])
     iterator = chain(iterator,(((),"peak_counts"), ((),"peak_loc")))
     func = lambda x: get_analysis_col_value(save_config,*x)
     return AnalysisObjectList(filter(func,iterator))
