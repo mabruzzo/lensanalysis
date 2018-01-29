@@ -2,7 +2,7 @@ import copy
 from itertools import chain
 import warnings
 
-from .conversions import ShearCatalogToShearMap, ShearMapToConvMap
+from .conversions import ShearCatalogToShearMap, ShearMapToSmoothedConvMap
 from .noise_addition import NoiseAdditionStep, CatalogShapeNoiseAdder
 from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
@@ -26,17 +26,6 @@ shear_cat = {}
 _noisy = (DescriptorEnum.noisy,)
 _smooth = (DescriptorEnum.smoothed,)
 _noisy_smooth = (DescriptorEnum.noisy, DescriptorEnum.smoothed)
-
-#shear_cat[(_noisy_smooth, "conv_map")] = [((), "shear_cat", None),
-#                                          (_noisy, "shear_map", None),
-#                                          (_noisy_smooth, "conv_map", None)]
-#shear_cat[(_noisy,"conv_map")] = ...
-#shear_cat[(_smooth,"conv_map")] = ...
-
-#features = {"peak_counting": [((DescriptorEnum.smoothed, DescriptorEnum.noisy),
-#                               "conv_map", None),
-#                              ((),"peak_loc",None),
-#                              ((),"peak_counts", None)]}
 
 class AnalysisObjectList(object):
     def __init__(self,iterable = []):
@@ -161,20 +150,19 @@ def build_smooth_noisy_convergence(begin, procedure_config, save_config,
     appears to be for circular convolution. I need to chat with Jose about it.
     """
 
-    print ("Reminder to address whether or not it's better to smooth and "
-           "transform in one shot")
-    
-    second_step = ConvMapSmoothing(procedure_config.get_smoothing_scale())
+    edge_angle = procedure_config.get_conv_map_edge_angle()
+    npixel = procedure_config.get_conv_map_resolution()
+
+    out = ShearMapToSmoothedConvMap(npixel,edge_angle,
+                                    procedure_config.get_smoothing_scale())
 
     if save_config.conv_map.smoothed_noisy_map:
         storage = storage_collection.conv_map.smoothed_noisy_map
         objects_to_save.remove(((_noisy_smooth),"conv_map"))
         save_step = SaveCollectionEntries(storage)
-        _wrap_save_step(second_step, save_step, feature_step)
+        _wrap_save_step(out, save_step, feature_step)
     else:
-        second_step.wrapped_step = feature_step
-    out = ShearMapToConvMap()
-    out.wrapped_step = second_step
+        out.wrapped_step = feature_step
     return out
 
 def build_shear_conversion(begin, procedure_config, save_config,
@@ -216,7 +204,7 @@ def build_shear_conversion(begin, procedure_config, save_config,
                                                    inplace = False))
     out.wrapped_step = second_step
     return out
-    
+
         
 
 def _build_procedure_helper(begin_object, procedure_config, save_config,

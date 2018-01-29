@@ -2,11 +2,13 @@ import warnings
 
 import numpy as np
 import astropy.table as tbl
+import astropy.units as u
 from lenstools import ShearMap
 
 from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
-from ..masked_operations import convert_shear_to_convergence
+from ..masked_operations import convert_shear_to_convergence, \
+    determine_kernel_fft, convert_shear_to_smoothed_convergence_main
 
 class ShearCatalogToShearMap(ConversionProcedureStep):
     """
@@ -42,7 +44,7 @@ class ShearCatalogToShearMap(ConversionProcedureStep):
     def conversion_operation(self,data_object,packet):
         if self.produce_single:
             message = ("Pixelizing Shear Catalog(s) of realization {:d} into "
-                       "single shear maps.")
+                       "a single shear map.")
         else:
             message = ("Pixelizing Shear Catalog(s) of realization {:d} into "
                        "shear maps.")
@@ -70,6 +72,49 @@ class ShearMapToConvMap(ConversionProcedureStep):
                             "for realiztion {:d}").format(packet.data_id))
 
         out = map(convert_shear_to_convergence, data_object)
+        return out
+
+class ShearMapToSmoothedConvMap(ConversionProcedureStep):
+    """
+    Converts collections of shear maps into collections of smoothed convergence 
+    maps.
+
+    Parameters
+    ----------
+    npixel : int
+        The number of pixels along the edge of the convergence map
+    edge_angle : astropy.Quantity
+        The angle along the edge of the convergence map.
+    scale_angle : astropy.Quantity
+        Size of smoothing to be performed. Must have units.
+    """
+
+    def __init__(self,npixel,edge_angle,scale_angle):
+        assert npixel>0
+        assert edge_angle.physical_type == "angle" and edge_angle.value > 0
+        assert scale_angle.physical_type == "angle" and scale_angle.value > 0
+
+        sigma_pix = (scale_angle * float(npixel)
+                     / (edge_angle)).decompose().value
+        fft_kernel, pad_axis = determine_kernel_fft(sigma_pix, npixel)
+        self.fft_kernel = fft_kernel
+        self.pad_axis = pad_axis
+        self.npixel = npixel
+        self.side_angle = side_angle
+        
+    def conversion_operation(self,data_object,packet):
+        logprocedure.debug(("Converting shear map(s) into smoothed convergence "
+                            "map(s) for realization "
+                            "{:d}").format(packet.data_id))
+
+        out = []
+        for shear_map in data_object:
+            assert shear_map.side_ange == self.side_angle
+            assert shear_map.data.size[-1] == self.npixel
+            conv = convert_shear_to_smoothed_convergence_main(shear_map,
+                                                              self.pad_axis,
+                                                              self.fft_kernel)
+            out.append(conv)
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):
