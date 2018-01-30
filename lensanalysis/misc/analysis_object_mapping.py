@@ -97,7 +97,7 @@ class AnalysisObjectMapping(MutableMapping):
         else:
             self._name_format_converter =self._default_converter
         self._dict = {}
-
+        
     def __getitem__(self,key):
         temp = self._name_format_converter.convert_name(key)
         return self._dict[temp]
@@ -117,7 +117,7 @@ class AnalysisObjectMapping(MutableMapping):
         return self._dict.__iter__()
 
     def __len__(self):
-        return self.__len__()
+        return self._dict.__len__()
 
     def iteritems(self):
         return self._dict.iteritems()
