@@ -8,9 +8,8 @@ from mpi4py import MPI
 from lensanalysis.config_parsing.cosmo_config import \
     CosmoCollectionConfigBuilder
 from lensanalysis.config_parsing.procedure_config import ProcedureConfig
-from lensanalysis.misc.analysis_collection import AnalysisProductCollection, \
-    ConvergenceMapProductCollection, ShearMapProductCollection, \
-    FeatureProductCollection, set_analysis_col_value, get_analysis_col_value
+from lensanalysis.misc.analysis_collection import get_analysis_col_value, \
+    default_value_UAPC
 from lensanalysis.misc.enum_definitions import Descriptor
 from lensanalysis.misc.log import logger
 from lensanalysis.misc.name_parser import SafeNameParser
@@ -102,8 +101,7 @@ def setup_saved_products_helper(in_progress, analysis_storage_collection,
             raise ValueError(("{:s}, {:s} does not have any storage object "
                               "initialized").format(str(descriptors),
                                                     object_name))
-        set_analysis_col_value(in_progress, descriptors, 
-                               object_name, True)
+        in_progress[(descriptors,object_name)] = True
 
 def determine_saved_products(cmd_args, proc_config,
                              analysis_storage_collection):
@@ -111,13 +109,7 @@ def determine_saved_products(cmd_args, proc_config,
     Comes up with an instance of AnalysisProductCollection with True values 
     for every analysis product we want to save.
     """
-
-    out = AnalysisProductCollection()
-    out.conv_map = ConvergenceMapProductCollection()
-    out.shear_map = ShearMapProductCollection()
-    out.feature_products = FeatureProductCollection()
-
-    parser = SafeNameParser()
+    out = default_value_UAPC(False)
 
     if cmd_args.save is not None:
         setup_saved_products_helper(out, analysis_storage_collection,

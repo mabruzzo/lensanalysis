@@ -8,9 +8,8 @@ from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
-from ..misc.analysis_collection import get_analysis_col_value, \
-    default_value_UAPC
-from ..misc.enum_definitions import Descriptor, all_combinations
+from ..misc.analysis_collection import default_value_UAPC
+from ..misc.enum_definitions import Descriptor
 
 def _equal_analysis_object(object_tuple1, object_tuple2):
     assert len(object_tuple1) == 2
@@ -33,26 +32,9 @@ def _equal_analysis_object(object_tuple1, object_tuple2):
         return obt1_descriptor is obt2_descriptor
     return False
 
-
-shear_cat = {}
-
 _noisy = (Descriptor.noisy,)
 _smooth = (Descriptor.smoothed,)
 _noisy_smooth = (Descriptor.smoothed_noisy)
-
-def _determine_save_analysis_objects(save_config):
-    iterator = all_combinations(omit_analysis_objects = ["shear_cat",
-                                                         "peak_counts", 
-                                                         "peak_loc"],
-                                omit_descriptors = [Descriptor.tomo])
-    iterator = chain(iterator,(((),"peak_counts"), ((),"peak_loc")))
-    func = lambda x: get_analysis_col_value(save_config,*x)
-    l = filter(func,iterator)
-
-    out = default_value_UAPC(False)
-    for elem in l:
-        out[elem] = True
-    return out
     
 def _check_build_peak_counting(save_config):
     """
@@ -221,8 +203,7 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
     
 def build_procedure(begin_object, procedure_config, save_config,
                     storage_collection):
-    objects_to_save = _determine_save_analysis_objects(save_config)
-
+    objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config, save_config,
                                    storage_collection, objects_to_save)
 

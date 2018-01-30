@@ -5,9 +5,7 @@ import os.path
 
 from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
 
-from ..misc.analysis_collection import AnalysisProductCollection, \
-    ConvergenceMapProductCollection, ShearMapProductCollection, \
-    FeatureProductCollection
+from ..misc.analysis_collection import AnalysisProductCollection
 
 def _load_single_storage_collection(path, storage_config_method, descriptions):
     """
@@ -23,6 +21,7 @@ def _load_single_storage_collection(path, storage_config_method, descriptions):
         if os.path.isdir(head):
             os.mkdir(new_path)
             if not os.path.isdir(new_path):
+                #sanity check
                 raise RuntimeError("IT SHOULDN'T BE POSSIBLE FOR THIS TO GET "
                                    "CALLED")
         else:
@@ -37,11 +36,11 @@ def _load_full_storage_collection(path,storage_config):
 
     Come back and update after allowing for tomography.
     """
-    analysis_collection = AnalysisProductCollection()
+    analysis_collection = AnalysisProductCollection.factory()
 
     # first handle non-tomographic convergence maps
     # kappa storage collection
-    ksc = ConvergenceMapProductCollection()
+    ksc = analysis_collection.conv_map
     storage_method = storage_config.convergence_map_collection_storage
     ksc.noiseless_map = _load_single_storage_collection(path,
                                                         storage_method,
@@ -56,10 +55,9 @@ def _load_full_storage_collection(path,storage_config):
                                                              storage_method,
                                                              ['smoothed',
                                                               'noisy'])
-    analysis_collection.conv_map=ksc
 
     # shear storage collection
-    ssc = ShearMapProductCollection()
+    ssc = analysis_collection.shear_map
     storage_method = storage_config.shear_map_collection_storage
     
     ssc.noiseless_map = _load_single_storage_collection(path,
@@ -68,10 +66,9 @@ def _load_full_storage_collection(path,storage_config):
     ssc.noisy_map = _load_single_storage_collection(path,
                                                     storage_method,
                                                     ['noisy'])
-    analysis_collection.shear_map = ssc
 
     # now, finally let's load in the feature product collection
-    fpc = FeatureProductCollection()
+    fpc = analysis_collection.feature_products
 
     storage_method = storage_config.peak_loc_collection_storage
     fpc.peak_locations = _load_single_storage_collection(path,
@@ -81,7 +78,6 @@ def _load_full_storage_collection(path,storage_config):
     fpc.peak_counts = _load_single_storage_collection(path,
                                                       storage_method,
                                                       [])
-    analysis_collection.feature_products=fpc
     return analysis_collection
 
 
