@@ -1,7 +1,7 @@
 from collections import Mapping
 
 from enum_definitions import Descriptor, descriptor_mapping, \
-    analysis_object_descriptors
+    analysis_object_descriptors, single_descriptor_flags
 
 def _parse_name(name, analysis_names):
     """
@@ -22,7 +22,6 @@ def _parse_name(name, analysis_names):
     object_name : str
         Contains the analysis object name.
     """
-    
     for ref_name in analysis_names:
         ref_length = len(ref_name)
         if ref_name == name[-ref_length:]:
@@ -40,7 +39,7 @@ def _parse_name(name, analysis_names):
 
     descriptor_l = []
     for prefix in name_prefixes:
-        for descriptor_name, descriptor in Descriptor.__members__.items():
+        for descriptor_name, descriptor in single_descriptor_flags:
             aliases = descriptor_mapping[descriptor]
             if prefix in aliases:
                 # this means that we need to add the descriptor to the
@@ -133,6 +132,3 @@ class SafeNameParser(NameParser):
                                   "{:s}.").format(str(invalid_descr),
                                                   out[1]))
         return out
-        
-if __name__ == '__main__':
-    pass
