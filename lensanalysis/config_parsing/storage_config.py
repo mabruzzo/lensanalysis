@@ -18,75 +18,28 @@ def _set_defaults_dynamically(config, section, defaults):
                 val = str(elem[1])
             config.set(section,elem[0],val)
 
-_tomo_descriptors = ["tomo","tomography","tomographic"]
-_smoothing_descriptors = ['smoothed','smooth']
-_noisy_descriptors = ["noisy"]
-            
-def _check_unallowed_descriptors(descriptors,descriptor_subsets):
+
+def _check_unallowed_descriptors(descriptors,unallowed_descriptors):
     """
     Helper function that ensures descriptors only fall in a subset.
     """
     for elem in descriptor_subsets:
-        if elem == 'noisy':
-            ref_descriptors = _noisy_descriptors
-        elif elem == 'tomo':
-            ref_descriptors = _tomo_descriptors
-        elif elem == 'smooth':
-            ref_descriptors = _smoothing_descriptors
-        else:
-            raise ValueError(("{:s} is invalid descriptor checking"
-                              "subset").format(elem))
-        for i in ref_descriptors:
-            if i in descriptors:
-                raise ValueError("{:s} is not an allowed descriptor".format(i))
-                
-        
-def _parse_descriptor(descriptors):
-    """
-    Helper Function.
-    """
-    if len(descriptors) > 3:
-        raise ValueError("Too many descriptors mentioned")
-    results = [False,False, False]
-    for elem in descriptors:
-        if elem.lower() in _tomo_descriptors:
-            if results[0]:
-                raise ValueError("tomographic descriptor mentioned more than "
-                                 "once.")
-            results[0] = True
-            raise NotImplementedError("Not Presently Equiped to handle "
-                                      "tomographic data")
+        if elem in descriptors:
+            raise ValueError("{0!r} is not an allowed descriptor".format(elem))
 
-        elif elem.lower() in _smoothing_descriptors:
-            if results[1]:
-                raise ValueError("smoothing descriptor mentioned more than "
-                                 "once.")
-            results[1] = True
-
-        elif elem.lower() in _noisy_descriptors:
-            if results[2]:
-                raise ValueError("noisy descriptor mentioned more than "
-                                 "once.")
-            results[2] = True
-
-        elif elem.lower() != 'noiseless':
-            raise ValueError("{:s} is not an allowed descriptor.".format(elem))
-
-    return results
-
-def _descriptor_string_prefix(results):
-    if not any(results):
+def _descriptor_string_prefix(descriptor):
+    if Descriptor.none is descriptor:
         return "noiseless"
-    elif results[0] and not any(results[1:]):
+    elif Descriptor.tomo is descriptor:
         return "tomo_noiseless"
 
     temp_l = []
 
-    if results[0]:
+    if Descriptor.tomo in descriptor:
         temp_l.append('tomo')
-    if results[1]:
+    if Descriptor.smoothed in descriptor:
         temp_l.append('smoothed')
-    if results[2]:
+    if Descritpor.noisy in descriptor:
         temp_l.append('noisy')
     return '_'.join(temp_l)
 
@@ -121,140 +74,6 @@ def _check_create_storage(config,section,option,default = None):
 def _option_builder(*args):
     temp = [arg for arg in args if arg is not None]
     return '_'.join(temp)
-
-def _create_collection_storage(descriptors,root_dir,section_name,
-                               config, storage_class, 
-                               core_option_name = None,
-                               storage_option_suffix = None,
-                               storage_dir_suffix = 'dir',
-                               storage_fname_suffix = 'fname',
-                               noiseless_prefix = True):
-    """
-    General Helper Function to help read in storage configuration.
-
-    Parameters
-    ----------
-    descriptors : sequence or str
-        descriptors to discriminate between types of storage
-    root_dir : str
-        the directory within which all data is stored
-    section - str
-        The name of the section where the configuration comes from
-    config : ConfigParser
-        Instance of RawConfigParser, ConfigParser or SafeConfigParser
-    core_option_name : str or None, optional
-        The core part of the option name. If this is None, then there is no 
-        core part of the string. By default this is None.
-    storage_option_suffix : str or None
-        The suffix of the option that tells you whether or not we want to make 
-        a storage object. By default this is None.
-    storage_dir_suffix : str or None
-        The suffix of the option that tells you where the name of the storage 
-        directory that will (or already does) hold the collections. Default is 
-        'dir'.
-    storage_fname_suffix : str or None
-        The suffix of the option that gives the file name template. Default is 
-        'fname'.
-    """
-
-    decoded_arg = _parse_descriptor(descriptors)
-    string_prefix = _descriptor_string_prefix(decoded_arg)
-    if not noiseless_prefix and string_prefix == "noiseless":
-        string_prefix = None
-    make_storage_option = _option_builder(string_prefix, core_option_name,
-                                          storage_option_suffix)
-    make_storage = _check_create_storage(config, section_name,
-                                         make_storage_option,
-                                         default = False)
-    if not make_storage:
-        return None
-
-    # Now that we know that storage is allowed, check the remaining fields
-
-    # find the local directory where the storage is held
-    dir_option_name = _option_builder(string_prefix, core_option_name,
-                                      storage_dir_suffix)
-    local_dir = config.get(section_name, dir_option_name)
-    storage_dir = '/'.join((root_dir,local_dir))
-
-    # Find the fname_template
-    fname_option_name = _option_builder(string_prefix, core_option_name,
-                                        storage_fname_suffix)
-    fname_template = config.get(section_name, fname_option_name)
-
-    field_mapping = {"collection_id":"realization"}
-
-    if decoded_arg[0]:
-        raise NotImplementedError("Not currently allowing for the creation "
-                                  "of tomographic storage. We need to "
-                                  "create the machinary for the "
-                                  "subdirectories.")
-    else:
-        fname_formatter = BaseFnameFormatter(fname_template,"realization")
-        result = storage_class(fname_formatter, storage_dir, 1, field_mapping)
-    return result
-
-class StorageConfig(object):
-    """
-    Represents the storage configuration specified by a configuration file.
-
-    We should almost certainly be copying over the data from the ConfigParser 
-    and ignoring the ConfigParser afterwards.
-    """
-
-    def __init__(self,config_file):
-        self._config_parser = ConfigParser.SafeConfigParser()
-        self._config_parser.read(config_file)
-
-    def convergence_map_collection_storage(self,descriptors,root_dir):
-        """
-        Returns instance of ConvergenceStorage if specified in the storage 
-        configuration. If not specified, then None is returned.
-        """
-        return _create_collection_storage(descriptors, root_dir,
-                                          "ConvergenceMaps",
-                                          self._config_parser,
-                                          ConvergenceMapCollectionFGStorage,
-                                          core_option_name = None,
-                                          storage_option_suffix = 'map',
-                                          storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname')
-
-    def shear_map_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth'])
-        return _create_collection_storage(descriptors, root_dir,
-                                          "ShearMaps",
-                                          self._config_parser,
-                                          ShearMapCollectionFGStorage,
-                                          core_option_name = None,
-                                          storage_option_suffix = 'map',
-                                          storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname')
-
-    def peak_loc_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
-        return _create_collection_storage(descriptors, root_dir,
-                                          "FeatureProducts",
-                                          self._config_parser,
-                                          PeakLocCollectionFGStorage,
-                                          core_option_name = "peak_loc",
-                                          storage_option_suffix = None,
-                                          storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname',
-                                          noiseless_prefix = False)
-
-    def peak_counts_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
-        return _create_collection_storage(descriptors, root_dir,
-                                          "FeatureProducts",
-                                          self._config_parser,
-                                          PeakCountCollectionFGStorage,
-                                          core_option_name = "peak_counts",
-                                          storage_option_suffix = None,
-                                          storage_dir_suffix = 'dir',
-                                          storage_fname_suffix = 'fname',
-                                          noiseless_prefix = False)
-
 
 def _set_subdir_binned_realization_defaults(config, section, prefix):
     """
@@ -319,32 +138,186 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
                                                   fname_formatter,
                                                   "realization")
 
-def _construct_shear_fname_formatter(config, section):
-    fname_template = config.get(section,"shear_cat_fname_template")
-    bin_loc = config.getint(section,"shear_cat_fname_binning_loc")
-    if bin_loc not in [0,1]:
-        raise ValueError("shear_cat_fname_binning_loc must be 0 or 1")
-    realization_loc = config.getint(section,
-                                    "shear_cat_fname_realization_loc")
-    if realization_loc not in [0,1]:
-        raise ValueError("shear_cat_fname_realization_loc must be 0 or 1")
-    if realization_loc == bin_loc:
-        raise ValueError("shear_cat_fname_realization_loc and "
-                         "shear_cat_fname_binning_loc must\nhave different "
-                         "values")
-    if bin_loc == 0:
-        fields = ["bin", "realization"]
+def _build_fname_formatter(section, option_prefix, suffix_dict, config,
+                           allow_sub_dir=False):
+    tomo = option_prefix[:4] == 'tomo'
+
+    fname_option_name = _option_builder(option_prefix, suffix_dict['fname'])
+    fname_template = config.get(section_name, fname_option_name)
+    if not tomo:
+        fname_formatter = BaseFnameFormatter(fname_template,"realization")
+        field_mapping = {"collection_id":"realization"}
     else:
-        fields = ["realization", "bin"]
-    fname_formatter = BaseFnameFormatter(fname_template, fields)
-    return _build_subdir_binned_realization_formatter(fname_formatter, config,
-                                                      section, 'shear_cat')
+        field_mapping = {"collection_id" : "realization",
+                         "element_id" : "bin"}
+        bin_loc_option = "_".join([option_prefix,suffix_dic["bin_loc"]])
+        bin_loc = config.getint(section,bin_loc_option)
+        if bin_loc not in [0,1]:
+            raise ValueError("{:s} must be 0 or 1".format(bin_loc))
+
+        realization_option = "_".join([option_prefix,
+                                      suffix_dic["realization_loc"]])
+        realization_loc = config.getint(section,
+                                        realization_loc)
+        if realization_loc not in [0,1]:
+            raise ValueError("{:s} must be 0 or 1".format(realization_loc))
+        if realization_loc == bin_loc:
+            raise ValueError("shear_cat_fname_realization_loc and "
+                             "shear_cat_fname_binning_loc must\nhave different "
+                             "values")
+        if bin_loc == 0:
+            fields = ["bin", "realization"]
+        else:
+            fields = ["realization", "bin"]
+        fname_formatter = BaseFnameFormatter(fname_template, fields)
+
+        if allow_sub_dir:
+            temp = _build_subdir_binned_realization_formatter(fname_formatter,
+                                                              config,
+                                                              section,
+                                                              option_prefix)
+            fname_formatter = temp
+
+    return fname_formatter, field_mapping
+
+_normal_suffix_dict = {"fname" : "fname",
+                       "bin_loc" : "bin",
+                       "realization_loc" : "realization"}
+_shear_cat_suffix_dict = {"fname" : "fname_template",
+                          "bin_loc" : "fname_binning_loc",
+                          "realization_loc" : "fname_realization_loc"}
+
+def _create_collection_storage(descriptors,root_dir,section_name,
+                               config, storage_class, 
+                               core_option_name = None,
+                               storage_option_suffix = None,
+                               suffix_dict = _normal_suffix_dict,
+                               noiseless_prefix = True):
+    """
+    General Helper Function to help read in storage configuration.
+
+    Parameters
+    ----------
+    descriptors : sequence or str
+        descriptors to discriminate between types of storage
+    root_dir : str
+        the directory within which all data is stored
+    section - str
+        The name of the section where the configuration comes from
+    config : ConfigParser
+        Instance of RawConfigParser, ConfigParser or SafeConfigParser
+    core_option_name : str or None, optional
+        The core part of the option name. If this is None, then there is no 
+        core part of the string. By default this is None.
+    storage_option_suffix : str or None
+        The suffix of the option that tells you whether or not we want to make 
+        a storage object. By default this is None.
+    storage_dir_suffix : str or None
+        The suffix of the option that tells you where the name of the storage 
+        directory that will (or already does) hold the collections. Default is 
+        'dir'.
+    storage_fname_suffix : str or None
+        The suffix of the option that gives the file name template. Default is 
+        'fname'.
+    """
+    string_prefix = _descriptor_string_prefix(descriptors)
+    if not noiseless_prefix and string_prefix == "noiseless":
+        string_prefix = None
+    make_storage_option = _option_builder(string_prefix, core_option_name,
+                                          storage_option_suffix)
+    make_storage = _check_create_storage(config, section_name,
+                                         make_storage_option,
+                                         default = False)
+    if not make_storage:
+        return None
+
+    # Now that we know that storage is allowed, find the local directory where
+    # the storage is held
+    dir_option_name = _option_builder(string_prefix, core_option_name, 'dir')
+    local_dir = config.get(section_name, dir_option_name)
+    storage_dir = '/'.join((root_dir,local_dir))
+
+
+    option_prefix = _option_builder(string_prefix, core_option_name)
+    # Find the fname_template
+    fname_formatter, field_mapping = _build_fname_formatter(section_name,
+                                                            option_prefix,
+                                                            _normal_suffix_dict,
+                                                            config,
+                                                            allow_sub_dir=False)
+
+    if Descriptor.tomo in descriptors:
+        nbins = config.getint("General","num_tomo_bins")
+        assert nbins>1
+        result = storage_class(fname_formatter, storage_dir, nbins,
+                               field_mapping)
+        raise RuntimeError("Not presently equipped to handle subdirectories")
+    else:
+        result = storage_class(fname_formatter, storage_dir, 1, field_mapping)
+    return result
+
+class StorageConfig(object):
+    """
+    Represents the storage configuration specified by a configuration file.
+
+    We should almost certainly be copying over the data from the ConfigParser 
+    and ignoring the ConfigParser afterwards.
+    """
+
+    def __init__(self,config_file):
+        self._config_parser = ConfigParser.SafeConfigParser()
+        self._config_parser.read(config_file)
+
+    def convergence_map_collection_storage(self,descriptors,root_dir):
+        """
+        Returns instance of ConvergenceStorage if specified in the storage 
+        configuration. If not specified, then None is returned.
+        """
+        return _create_collection_storage(descriptors, root_dir,
+                                          "ConvergenceMaps",
+                                          self._config_parser,
+                                          ConvergenceMapCollectionFGStorage,
+                                          core_option_name = None,
+                                          storage_option_suffix = 'map')
+
+    def shear_map_collection_storage(self,descriptors,root_dir):
+        _check_unallowed_descriptors(descriptors,['smooth'])
+        return _create_collection_storage(descriptors, root_dir,
+                                          "ShearMaps",
+                                          self._config_parser,
+                                          ShearMapCollectionFGStorage,
+                                          core_option_name = None,
+                                          storage_option_suffix = 'map')
+
+    def peak_loc_collection_storage(self,descriptors,root_dir):
+        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
+        return _create_collection_storage(descriptors, root_dir,
+                                          "FeatureProducts",
+                                          self._config_parser,
+                                          PeakLocCollectionFGStorage,
+                                          core_option_name = "peak_loc",
+                                          storage_option_suffix = None,
+                                          noiseless_prefix = False)
+
+    def peak_counts_collection_storage(self,descriptors,root_dir):
+        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
+        return _create_collection_storage(descriptors, root_dir,
+                                          "FeatureProducts",
+                                          self._config_parser,
+                                          PeakCountCollectionFGStorage,
+                                          core_option_name = "peak_counts",
+                                          storage_option_suffix = None,
+                                          noiseless_prefix = False)
+
+
+def _construct_shear_fname_formatter(config, section):
+    return _build_fname_formatter(section, "shear_cat",
+                                  _shear_cat_suffix_dict, config,
+                                  allow_sub_dir=True)
+
 def _pos_fname_formatter(config,section):
     fname_template = config.get(section,"pos_cat_fname_template")
     return BaseFnameFormatter(fname_template, ["bin"])
-
-_normal_field_mapping = {"collection_id" : "realization",
-                         "element_id" : "bin"}
 
 class ShearCatCollectionLoaderConfig(object):
     """
@@ -358,8 +331,8 @@ class ShearCatCollectionLoaderConfig(object):
 
     def constructCompleteShearCatLoader(self,root_dir):
         num_elements = self._config.getint("ShearCats","num_cat_bins")
-        shear_formatter = _construct_shear_fname_formatter(self._config,
-                                                           "ShearCats")
+        temp = _construct_shear_fname_formatter(self._config,"ShearCats")
+        shear_formatter, field_mapping = temp
         pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
                                       _normal_field_mapping, pos_formatter)

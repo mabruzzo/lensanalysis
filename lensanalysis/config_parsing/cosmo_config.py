@@ -6,6 +6,7 @@ import os.path
 from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
 
 from ..misc.analysis_collection import AnalysisProductCollection
+from ..misc.enum_definitions import Descriptor
 
 def _load_single_storage_collection(path, storage_config_method, descriptions):
     """
@@ -44,17 +45,16 @@ def _load_full_storage_collection(path,storage_config):
     storage_method = storage_config.convergence_map_collection_storage
     ksc.noiseless_map = _load_single_storage_collection(path,
                                                         storage_method,
-                                                        [])
+                                                        Descriptor.none)
     ksc.noisy_map = _load_single_storage_collection(path,
                                                     storage_method,
-                                                    ['noisy'])
+                                                    Descriptor.noisy)
     ksc.smoothed_map = _load_single_storage_collection(path,
                                                        storage_method,
-                                                       ['smoothed'])
+                                                       Descriptor.smoothed)
     ksc.smoothed_noisy_map = _load_single_storage_collection(path,
                                                              storage_method,
-                                                             ['smoothed',
-                                                              'noisy'])
+                                                             Descriptor.smoothed_noisy)
 
     # shear storage collection
     ssc = analysis_collection.shear_map
@@ -62,10 +62,10 @@ def _load_full_storage_collection(path,storage_config):
     
     ssc.noiseless_map = _load_single_storage_collection(path,
                                                         storage_method,
-                                                        [])
+                                                        Descriptor.none)
     ssc.noisy_map = _load_single_storage_collection(path,
                                                     storage_method,
-                                                    ['noisy'])
+                                                    Descriptor.noisy)
 
     # now, finally let's load in the feature product collection
     fpc = analysis_collection.feature_products
@@ -73,11 +73,11 @@ def _load_full_storage_collection(path,storage_config):
     storage_method = storage_config.peak_loc_collection_storage
     fpc.peak_locations = _load_single_storage_collection(path,
                                                          storage_method,
-                                                         [])
+                                                         Descriptor.none)
     storage_method = storage_config.peak_counts_collection_storage
     fpc.peak_counts = _load_single_storage_collection(path,
                                                       storage_method,
-                                                      [])
+                                                      Descriptor.none)
     return analysis_collection
 
 
