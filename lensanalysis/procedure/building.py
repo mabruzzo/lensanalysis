@@ -8,7 +8,8 @@ from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
-from ..misc.analysis_collection import get_analysis_col_value
+from ..misc.analysis_collection import get_analysis_col_value, \
+    default_value_UAPC(value)
 from ..misc.enum_definitions import Descriptor, all_combinations
 
 def _equal_analysis_object(object_tuple1, object_tuple2):
@@ -16,8 +17,20 @@ def _equal_analysis_object(object_tuple1, object_tuple2):
     assert len(object_tuple2) == 2
 
     if object_tuple1[1] == object_tuple2[1]:
-        if len(set(object_tuple1[0]) ^ set(object_tuple2[0])) == 0:
-            return True
+        if isinstance(object_tuple1[0], (tuple,list)):
+            obt1_descriptor = Descriptor.none
+            for elem in object_tuple1[0]:
+                obt1_descriptor = obt1_descriptor | elem
+        else:
+            obt1_descriptor = object_tuple1[0]
+
+        if isinstance(object_tuple2[0], (tuple,list)):
+            obt2_descriptor = Descriptor.none
+            for elem in object_tuple2[0]:
+                obt2_descriptor = obt2_descriptor | elem
+        else:
+            obt2_descriptor = object_tuple2[0]
+        return obt1_descriptor is obt2_descriptor
     return False
 
 
@@ -25,53 +38,8 @@ shear_cat = {}
 
 _noisy = (Descriptor.noisy,)
 _smooth = (Descriptor.smoothed,)
-_noisy_smooth = (Descriptor.noisy, Descriptor.smoothed)
+_noisy_smooth = (Descriptor.smoothed_noisy)
 
-class AnalysisObjectList(object):
-    def __init__(self,iterable = []):
-        self._l = []
-        for i in iterable:
-            self.append(i)
-
-    def __getitem__(self,index):
-        return self._l[index]
-
-    def __setitem__(self,index, value):
-        self._l[index] = value
-
-    def __delitem__(self,index):
-        del self._l[index]
-
-    def append(self, value):
-        self._l.append(value)
-
-    def remove(self,value):
-        for elem in self._l:
-            if _equal_analysis_object(elem, value):
-                self._l.remove(elem)
-                break
-        else:
-            raise ValueError(("{:s} is not contained within "
-                              "AnalysisObjectList").format(str(value)))
-
-    def __contains__(self,value):
-        for elem in self._l:
-            if _equal_analysis_object(elem, value):
-                return True
-        return False
-
-    def __str__(self):
-        return self._l.__str__()
-
-    def __repr__(self):
-        return "AnalysisObjectList({:s})".format(repr(self._l))
-
-    def tolist(self):
-        return copy.copy(self._l)
-
-    def __len__(self):
-        return len(self._l)
-        
 def _determine_save_analysis_objects(save_config):
     iterator = all_combinations(omit_analysis_objects = ["shear_cat",
                                                          "peak_counts", 
@@ -79,7 +47,12 @@ def _determine_save_analysis_objects(save_config):
                                 omit_descriptors = [Descriptor.tomo])
     iterator = chain(iterator,(((),"peak_counts"), ((),"peak_loc")))
     func = lambda x: get_analysis_col_value(save_config,*x)
-    return AnalysisObjectList(filter(func,iterator))
+    l = filter(func,iterator)
+
+    out = default_value_UAPC(value)
+    for elem in l:
+        out[elem] = True
+    return out
     
 def _check_build_peak_counting(save_config):
     """
@@ -121,7 +94,7 @@ def build_peak_counting(begin, procedure_config, save_config,
             temp = SaveCollectionEntries(storage)
             second_step.wrapped_step = temp
 
-            objects_to_save.remove(((),"peak_counts"))
+            objects_to_save.feature_products.peak_counts = False
 
         if _equal_analysis_object(begin,((),"peak_loc")):
             return second_step
@@ -133,7 +106,7 @@ def build_peak_counting(begin, procedure_config, save_config,
     if save_config.feature_products.peak_locations:
         storage = storage_collection.feature_products.peak_locations
         save_step = SaveCollectionEntries(storage)
-        objects_to_save.remove(((),"peak_loc"))
+        objects_to_save.feature_products.peak_locations = False
         _wrap_save_step(step, save_step, second_step)
     else:
         step.wrapped_step = second_step
@@ -158,7 +131,7 @@ def build_smooth_noisy_convergence(begin, procedure_config, save_config,
 
     if save_config.conv_map.smoothed_noisy_map:
         storage = storage_collection.conv_map.smoothed_noisy_map
-        objects_to_save.remove(((_noisy_smooth),"conv_map"))
+        objects_to_save.conv_map.smoothed_noisy_map = False
         save_step = SaveCollectionEntries(storage)
         _wrap_save_step(out, save_step, feature_step)
     else:
@@ -183,7 +156,7 @@ def build_shear_conversion(begin, procedure_config, save_config,
     if save_config.shear_map.noisy_map:
         # should probably factor this out as a function
         storage = storage_collection.shear_map.noisy_map
-        objects_to_save.remove(((_noisy),"shear_map"))
+        objects_to_save.save_config.shear_map.noisy_map = False
         save_step = SaveCollectionEntries(storage)
         _wrap_save_step(second_step, save_step, following_sequential_step)
     else:
@@ -249,11 +222,12 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
 def build_procedure(begin_object, procedure_config, save_config,
                     storage_collection):
     objects_to_save = _determine_save_analysis_objects(save_config)
+
     step = _build_procedure_helper(begin_object, procedure_config, save_config,
                                    storage_collection, objects_to_save)
 
-    if len(objects_to_save)>0:
+    if any(objects_to_save):
         raise ValueError(("Not all specified analysis products are scheduled "
                           "for saving. The remaining products to be saved are: "
-                          "\n{:s}").format(str(objects_to_save)))
+                          "\n{:s}").format(str(objects_to_save.tolist())))
     return step
