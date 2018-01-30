@@ -91,8 +91,8 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
     def __init__(self,npixel,edge_angle,scale_angle):
         assert npixel>0
-        assert edge_angle.physical_type == "angle" and edge_angle.value > 0
-        assert scale_angle.physical_type == "angle" and scale_angle.value > 0
+        assert edge_angle.unit.physical_type == "angle" and edge_angle.value > 0
+        assert scale_angle.unit.physical_type == "angle" and scale_angle.value > 0
 
         sigma_pix = (scale_angle * float(npixel)
                      / (edge_angle)).decompose().value
@@ -100,7 +100,7 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.fft_kernel = fft_kernel
         self.pad_axis = pad_axis
         self.npixel = npixel
-        self.side_angle = side_angle
+        self.side_angle = edge_angle
         
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "
@@ -109,8 +109,8 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
         out = []
         for shear_map in data_object:
-            assert shear_map.side_ange == self.side_angle
-            assert shear_map.data.size[-1] == self.npixel
+            assert shear_map.side_angle == self.side_angle
+            assert shear_map.data.shape[-1] == self.npixel
             conv = convert_shear_to_smoothed_convergence_main(shear_map,
                                                               self.pad_axis,
                                                               self.fft_kernel)

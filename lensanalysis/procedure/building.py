@@ -9,7 +9,7 @@ from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
 from ..misc.analysis_collection import get_analysis_col_value, \
-    default_value_UAPC(value)
+    default_value_UAPC
 from ..misc.enum_definitions import Descriptor, all_combinations
 
 def _equal_analysis_object(object_tuple1, object_tuple2):
@@ -49,7 +49,7 @@ def _determine_save_analysis_objects(save_config):
     func = lambda x: get_analysis_col_value(save_config,*x)
     l = filter(func,iterator)
 
-    out = default_value_UAPC(value)
+    out = default_value_UAPC(False)
     for elem in l:
         out[elem] = True
     return out
@@ -226,8 +226,12 @@ def build_procedure(begin_object, procedure_config, save_config,
     step = _build_procedure_helper(begin_object, procedure_config, save_config,
                                    storage_collection, objects_to_save)
 
-    if any(objects_to_save):
+    
+    remaining = filter(lambda key : objects_to_save[key],
+                       objects_to_save.keys())
+    if len(remaining)!=0:
+        
         raise ValueError(("Not all specified analysis products are scheduled "
                           "for saving. The remaining products to be saved are: "
-                          "\n{:s}").format(str(objects_to_save.tolist())))
+                          "\n{:s}").format(str(remaining)))
     return step

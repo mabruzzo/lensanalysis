@@ -171,7 +171,7 @@ class UniformAnalysisProductCollection(AnalysisProductCollection,Mapping):
         return self._mapping.__iter__()
 
     def tolist(self):
-        return [(key,self[value]) for key in self.keys()]
+        return [(key,self[key]) for key in self.keys()]
 
 def default_value_UAPC(value):
     """
