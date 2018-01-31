@@ -139,7 +139,8 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
                                                   "realization")
 
 def _build_fname_formatter(section, option_prefix, suffix_dict, config,
-                           allow_sub_dir=False):
+                           subdir_section = None, subdir_prefix = None,
+                           allowsub_dir = False):
     tomo = option_prefix[:4] == 'tomo'
 
     fname_option_name = _option_builder(option_prefix, suffix_dict['fname'])
@@ -172,10 +173,16 @@ def _build_fname_formatter(section, option_prefix, suffix_dict, config,
         fname_formatter = BaseFnameFormatter(fname_template, fields)
 
         if allow_sub_dir:
+            if subdir_section is None:
+                subdir_section = section
+            
+            if subdir_prefix is None:
+                subdir_prefix = option_prefix
+            
             temp = _build_subdir_binned_realization_formatter(fname_formatter,
                                                               config,
-                                                              section,
-                                                              option_prefix)
+                                                              subdir_section,
+                                                              subdir_prefix)
             fname_formatter = temp
 
     return fname_formatter, field_mapping
@@ -243,7 +250,8 @@ def _create_collection_storage(descriptors,root_dir,section_name,
     fname_formatter, field_mapping = _build_fname_formatter(section_name,
                                                             option_prefix,
                                                             _normal_suffix_dict,
-                                                            config,
+                                                            config, "General",
+                                                            "tomo",
                                                             allow_sub_dir=False)
 
     if Descriptor.tomo in descriptors:
@@ -251,7 +259,6 @@ def _create_collection_storage(descriptors,root_dir,section_name,
         assert nbins>1
         result = storage_class(fname_formatter, storage_dir, nbins,
                                field_mapping)
-        raise RuntimeError("Not presently equipped to handle subdirectories")
     else:
         result = storage_class(fname_formatter, storage_dir, 1, field_mapping)
     return result
@@ -335,7 +342,7 @@ class ShearCatCollectionLoaderConfig(object):
         shear_formatter, field_mapping = temp
         pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
-                                      _normal_field_mapping, pos_formatter)
+                                      field_mapping, pos_formatter)
         return loader
 
 if __name__ == '__main__':
