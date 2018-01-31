@@ -1,5 +1,6 @@
 import ConfigParser
 
+from ..misc.enum_definitions import Descriptor
 from ..misc.serialization import ShearMapCollectionFGStorage, \
     ConvergenceMapCollectionFGStorage, PeakLocCollectionFGStorage, \
     PeakCountCollectionFGStorage, FullShearCatFGLoader
@@ -23,9 +24,9 @@ def _check_unallowed_descriptors(descriptors,unallowed_descriptors):
     """
     Helper function that ensures descriptors only fall in a subset.
     """
-    for elem in descriptor_subsets:
-        if elem in descriptors:
-            raise ValueError("{0!r} is not an allowed descriptor".format(elem))
+
+    if (descriptors & unallowed_descriptors) != Descriptor.none:
+        raise ValueError("{0!r} is not an allowed descriptor".format(descriptors))
 
 def _descriptor_string_prefix(descriptor):
     if Descriptor.none is descriptor:
@@ -39,7 +40,7 @@ def _descriptor_string_prefix(descriptor):
         temp_l.append('tomo')
     if Descriptor.smoothed in descriptor:
         temp_l.append('smoothed')
-    if Descritpor.noisy in descriptor:
+    if Descriptor.noisy in descriptor:
         temp_l.append('noisy')
     return '_'.join(temp_l)
 
@@ -140,26 +141,26 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
 
 def _build_fname_formatter(section, option_prefix, suffix_dict, config,
                            subdir_section = None, subdir_prefix = None,
-                           allowsub_dir = False):
-    tomo = option_prefix[:4] == 'tomo'
+                           allow_sub_dir=False, forced_tomo = False):
+    tomo = option_prefix[:4] == 'tomo' or forced_tomo
 
     fname_option_name = _option_builder(option_prefix, suffix_dict['fname'])
-    fname_template = config.get(section_name, fname_option_name)
+    fname_template = config.get(section, fname_option_name)
     if not tomo:
         fname_formatter = BaseFnameFormatter(fname_template,"realization")
         field_mapping = {"collection_id":"realization"}
     else:
         field_mapping = {"collection_id" : "realization",
                          "element_id" : "bin"}
-        bin_loc_option = "_".join([option_prefix,suffix_dic["bin_loc"]])
+        bin_loc_option = "_".join([option_prefix,suffix_dict["bin_loc"]])
         bin_loc = config.getint(section,bin_loc_option)
         if bin_loc not in [0,1]:
             raise ValueError("{:s} must be 0 or 1".format(bin_loc))
 
         realization_option = "_".join([option_prefix,
-                                      suffix_dic["realization_loc"]])
+                                      suffix_dict["realization_loc"]])
         realization_loc = config.getint(section,
-                                        realization_loc)
+                                        realization_option)
         if realization_loc not in [0,1]:
             raise ValueError("{:s} must be 0 or 1".format(realization_loc))
         if realization_loc == bin_loc:
@@ -288,7 +289,7 @@ class StorageConfig(object):
                                           storage_option_suffix = 'map')
 
     def shear_map_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth'])
+        _check_unallowed_descriptors(descriptors,Descriptor.smoothed)
         return _create_collection_storage(descriptors, root_dir,
                                           "ShearMaps",
                                           self._config_parser,
@@ -297,7 +298,7 @@ class StorageConfig(object):
                                           storage_option_suffix = 'map')
 
     def peak_loc_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
+        _check_unallowed_descriptors(descriptors,Descriptor.smoothed_noisy)
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
@@ -307,7 +308,7 @@ class StorageConfig(object):
                                           noiseless_prefix = False)
 
     def peak_counts_collection_storage(self,descriptors,root_dir):
-        _check_unallowed_descriptors(descriptors,['smooth','noisy'])
+        _check_unallowed_descriptors(descriptors,Descriptor.smoothed_noisy)
         return _create_collection_storage(descriptors, root_dir,
                                           "FeatureProducts",
                                           self._config_parser,
@@ -320,7 +321,8 @@ class StorageConfig(object):
 def _construct_shear_fname_formatter(config, section):
     return _build_fname_formatter(section, "shear_cat",
                                   _shear_cat_suffix_dict, config,
-                                  allow_sub_dir=True)
+                                  allow_sub_dir=True,
+                                  forced_tomo = True)
 
 def _pos_fname_formatter(config,section):
     fname_template = config.get(section,"pos_cat_fname_template")
@@ -340,6 +342,8 @@ class ShearCatCollectionLoaderConfig(object):
         num_elements = self._config.getint("ShearCats","num_cat_bins")
         temp = _construct_shear_fname_formatter(self._config,"ShearCats")
         shear_formatter, field_mapping = temp
+        print "SHEAR"
+        print field_mapping
         pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
                                       field_mapping, pos_formatter)
