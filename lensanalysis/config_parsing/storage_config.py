@@ -140,8 +140,8 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
                                                   "realization")
 
 def _build_fname_formatter(section, option_prefix, suffix_dict, config,
-                           allow_sub_dir=False):
-    tomo = option_prefix[:4] == 'tomo'
+                           allow_sub_dir=False, forced_tomo = False):
+    tomo = option_prefix[:4] == 'tomo' or forced_tomo
 
     fname_option_name = _option_builder(option_prefix, suffix_dict['fname'])
     fname_template = config.get(section, fname_option_name)
@@ -151,15 +151,15 @@ def _build_fname_formatter(section, option_prefix, suffix_dict, config,
     else:
         field_mapping = {"collection_id" : "realization",
                          "element_id" : "bin"}
-        bin_loc_option = "_".join([option_prefix,suffix_dic["bin_loc"]])
+        bin_loc_option = "_".join([option_prefix,suffix_dict["bin_loc"]])
         bin_loc = config.getint(section,bin_loc_option)
         if bin_loc not in [0,1]:
             raise ValueError("{:s} must be 0 or 1".format(bin_loc))
 
         realization_option = "_".join([option_prefix,
-                                      suffix_dic["realization_loc"]])
+                                      suffix_dict["realization_loc"]])
         realization_loc = config.getint(section,
-                                        realization_loc)
+                                        realization_option)
         if realization_loc not in [0,1]:
             raise ValueError("{:s} must be 0 or 1".format(realization_loc))
         if realization_loc == bin_loc:
@@ -314,7 +314,8 @@ class StorageConfig(object):
 def _construct_shear_fname_formatter(config, section):
     return _build_fname_formatter(section, "shear_cat",
                                   _shear_cat_suffix_dict, config,
-                                  allow_sub_dir=True)
+                                  allow_sub_dir=True,
+                                  forced_tomo = True)
 
 def _pos_fname_formatter(config,section):
     fname_template = config.get(section,"pos_cat_fname_template")
@@ -334,9 +335,11 @@ class ShearCatCollectionLoaderConfig(object):
         num_elements = self._config.getint("ShearCats","num_cat_bins")
         temp = _construct_shear_fname_formatter(self._config,"ShearCats")
         shear_formatter, field_mapping = temp
+        print "SHEAR"
+        print field_mapping
         pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
-                                      _normal_field_mapping, pos_formatter)
+                                      field_mapping, pos_formatter)
         return loader
 
 if __name__ == '__main__':
