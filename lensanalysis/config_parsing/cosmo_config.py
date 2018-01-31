@@ -8,10 +8,14 @@ from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
 from ..misc.analysis_collection import AnalysisProductCollection
 from ..misc.enum_definitions import Descriptor
 
-def _load_single_storage_collection(path, storage_config_method, descriptions):
+def _load_single_storage_collection(path, storage_config_method, descriptions,
+                                    tomo_descriptor = False):
     """
     This is probably not the way to do this.
     """
+    if tomo_descriptor:
+        descriptors = descriptors | Descriptor.tomo
+    
     storage = storage_config_method(descriptions,path)
     if storage is None:
         return None
@@ -29,6 +33,74 @@ def _load_single_storage_collection(path, storage_config_method, descriptions):
             raise ValueError("{:s} does not exist/ is not a directory")
     return storage
 
+def _load_conv_storage_collection(path, analysis_collection,
+                                  storage_config, save_config=None,
+                                  tomo=False):
+    """
+    Handles the setting up of loading ConvergenceMap Storage Objects.
+
+    Adding save_config in for future refactoring purposes. By knowing which 
+    objects to save, we only initialize the objects that are needed
+    """
+
+    kappa_save_config = None
+    if tomo:
+        ksc = analysis_collection.tomo_conv_map
+        if save_config is not None:
+            kappa_save_config = save_config.tomo_conv_map
+    else:
+        ksc = analysis_collection.conv_map
+        if save_config is not None:
+            kappa_save_config = save_config.tomo_conv_map
+
+    storage_method = storage_config.convergence_map_collection_storage
+    ksc.noiseless_map = _load_single_storage_collection(path,
+                                                        storage_method,
+                                                        Descriptor.none,
+                                                        tomo)
+    ksc.noisy_map = _load_single_storage_collection(path,
+                                                    storage_method,
+                                                    Descriptor.noisy,
+                                                    tomo)
+    ksc.smoothed_map = _load_single_storage_collection(path, storage_method,
+                                                       Descriptor.smoothed,
+                                                       tomo)
+    ksc.smoothed_noisy_map = _load_single_storage_collection(path,
+                                                             storage_method,
+                                                             Descriptor.smoothed_noisy,
+                                                             tomo)
+
+def _load_shear_storage_collection(path, analysis_collection,
+                                   storage_config, save_config=None,
+                                   tomo=False):
+    """
+    Handles the setting up of loading ConvergenceMap Storage Objects.
+
+    Adding save_config in for future refactoring purposes. By knowing which 
+    objects to save, we only initialize the objects that are needed
+    """
+
+    shear_save_config = None
+    if tomo:
+        ssc = analysis_collection.tomo_shear_map
+        if save_config is not None:
+            shear_save_config = save_config.tomo_shear_map
+    else:
+        ssc = analysis_collection.shear_map
+        if save_config is not None:
+            shear_save_config = save_config.shear_map
+
+    storage_method = storage_config.shear_map_collection_storage
+
+    ssc.noiseless_map = _load_single_storage_collection(path,
+                                                        storage_method,
+                                                        Descriptor.none,
+                                                        tomo)
+    ssc.noisy_map = _load_single_storage_collection(path,
+                                                    storage_method,
+                                                    Descriptor.noisy,
+                                                    tomo)
+    
 def _load_full_storage_collection(path,storage_config):
     """
     Create the storage collection as you go.
@@ -42,30 +114,20 @@ def _load_full_storage_collection(path,storage_config):
     # first handle non-tomographic convergence maps
     # kappa storage collection
     ksc = analysis_collection.conv_map
-    storage_method = storage_config.convergence_map_collection_storage
-    ksc.noiseless_map = _load_single_storage_collection(path,
-                                                        storage_method,
-                                                        Descriptor.none)
-    ksc.noisy_map = _load_single_storage_collection(path,
-                                                    storage_method,
-                                                    Descriptor.noisy)
-    ksc.smoothed_map = _load_single_storage_collection(path,
-                                                       storage_method,
-                                                       Descriptor.smoothed)
-    ksc.smoothed_noisy_map = _load_single_storage_collection(path,
-                                                             storage_method,
-                                                             Descriptor.smoothed_noisy)
+    _load_conv_storage_collection(path, analysis_collection, storage_config,
+                                  save_config=None, tomo=False)
+
+    # now handle tomographic convergence maps
+    _load_conv_storage_collection(path, analysis_collection, storage_config,
+                                  save_config=None, tomo=True)
 
     # shear storage collection
-    ssc = analysis_collection.shear_map
-    storage_method = storage_config.shear_map_collection_storage
+    _load_shear_storage_collection(path, analysis_collection,
+                                   storage_config, save_config=None,
+                                   tomo=False)
+
     
-    ssc.noiseless_map = _load_single_storage_collection(path,
-                                                        storage_method,
-                                                        Descriptor.none)
-    ssc.noisy_map = _load_single_storage_collection(path,
-                                                    storage_method,
-                                                    Descriptor.noisy)
+    
 
     # now, finally let's load in the feature product collection
     fpc = analysis_collection.feature_products
