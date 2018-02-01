@@ -49,7 +49,7 @@ def _load_conv_storage_collection(path, analysis_collection,
     else:
         ksc = analysis_collection.conv_map
         if save_config is not None:
-            kappa_save_config = save_config.tomo_conv_map
+            kappa_save_config = save_config.conv_map
         tomo_prefix = ''
     no_save_config = (kappa_save_config is None)
 
@@ -81,12 +81,12 @@ def _load_conv_storage_collection(path, analysis_collection,
             raise ValueError(("{:s}Smoothed convergence map storage options "
                               "not specified").format(tomo_prefix))
 
-    if no_save_config or kappa_saved_config.smoothed_noisy_map:
+    if no_save_config or kappa_save_config.smoothed_noisy_map:
         temp = _load_single_storage_collection(path, storage_method,
                                                Descriptor.smoothed_noisy,
                                                tomo)
         ksc.smoothed_noisy_map = temp
-        if (not no_save_config) and ksc.smoothed_map is None:
+        if (not no_save_config) and ksc.smoothed_noisy_map is None:
             raise ValueError(("{:s}Smoothed Noisy convergence map storage "
                               "options not specified").format(tomo_prefix))
 
@@ -163,7 +163,7 @@ def _load_feature_product_storage_collection(path, analysis_collection,
         fpc.peak_counts = _load_single_storage_collection(path,
                                                           storage_method,
                                                           Descriptor.none)
-    if (not no_save_config) and fpc.peak_counts is None:
+        if (not no_save_config) and fpc.peak_counts is None:
             raise ValueError(("Peak Counts storage options not "
                               "specified"))
 
@@ -171,7 +171,7 @@ def _load_feature_product_storage_collection(path, analysis_collection,
         fpc.tomo_peak_counts = _load_single_storage_collection(path,
                                                                storage_method,
                                                                Descriptor.tomo)
-    if (not no_save_config) and fpc.tomo_peak_counts is None:
+        if (not no_save_config) and fpc.tomo_peak_counts is None:
             raise ValueError(("Tomographic Peak Counts storage options not "
                               "specified"))
 
@@ -197,10 +197,10 @@ def _load_full_storage_collection(path,storage_config,save_config = None):
 
     # shear storage collection
     _load_shear_storage_collection(path, analysis_collection, storage_config,
-                                   save_config=safe_config, tomo=False)
+                                   save_config=save_config, tomo=False)
     # tomographic shear storage collection
     _load_shear_storage_collection(path, analysis_collection, storage_config,
-                                   save_config=safe_config, tomo=True)
+                                   save_config=save_config, tomo=True)
     
     
     _load_feature_product_storage_collection(path, analysis_collection,
@@ -277,6 +277,7 @@ class CosmologyAnalysisCollection(object):
         # create the directory
         new_path = os.path.join(self._root_path,name)
         os.mkdir(new_path)
+
         temp = _load_full_storage_collection(new_path,
                                              self._storage_config,
                                              save_config)
@@ -291,7 +292,7 @@ class CosmologyAnalysisCollection(object):
 
         if name not in self:
             raise ValueError("Does not contain {:s}".format(name))
-        
+
         path = os.path.join(self._root_path,name)
         temp = _load_full_storage_collection(path,
                                              self._storage_config,

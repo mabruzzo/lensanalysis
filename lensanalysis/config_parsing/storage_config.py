@@ -342,8 +342,6 @@ class ShearCatCollectionLoaderConfig(object):
         num_elements = self._config.getint("ShearCats","num_cat_bins")
         temp = _construct_shear_fname_formatter(self._config,"ShearCats")
         shear_formatter, field_mapping = temp
-        print "SHEAR"
-        print field_mapping
         pos_formatter = _pos_fname_formatter(self._config,"ShearCats")
         loader = FullShearCatFGLoader(shear_formatter, root_dir, num_elements,
                                       field_mapping, pos_formatter)

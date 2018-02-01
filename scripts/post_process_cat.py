@@ -92,14 +92,14 @@ def setup_saved_products_helper(in_progress, iterable):
         descriptors,object_name = parser.parse_name(elem)
         in_progress[(descriptors,object_name)] = True
 
-def determine_save_config(cmd_args, proc_config):
+def determine_saved_products(cmd_args, proc_config):
     """
     Comes up with an instance of AnalysisProductCollection with True values 
     for every analysis product we want to save.
     """
     out = default_value_UAPC(False)
     
-     if cmd_args.save is not None:
+    if cmd_args.save is not None:
         setup_saved_products_helper(out, cmd_args.save)
     else:
         if cmd_args.include is not None:
@@ -189,7 +189,6 @@ def _setup_mpi_helper(builder,comm,name,save_config=None):
         cosmo_storage_col = builder.get_fiducial_storage_collection()
     else:
         cosmo_storage_col = builder.get_sampled_storage_collection()
-
     save = save_config
     if name in cosmo_storage_col:
         analysis_storage = cosmo_storage_col.get_analysis_product_storage(name,
@@ -223,7 +222,7 @@ def setup(cmd_args,comm):
     # in the appropriate locations with True/False (whether or not we wish to
     # save the file.
     save_config = determine_saved_products(cmd_args, proc_config)
-    
+
     # now let's build the cosmo collection config builder
     # while doing this check to ensure that we only initialize necessary save
     # files
@@ -238,13 +237,14 @@ def setup(cmd_args,comm):
 
     name = cmd_args.id[0]
     if nprocs == 1:
-        cosmo_storage_col = _setup_mpi_helper(builder,comm,save_config)
+        temp = _setup_mpi_helper(builder,comm,name,save_config)
+        cosmo_storage_col,analysis_storage=temp
     else:
         rank = comm.Get_rank()
         # check an possible create the directories on rank 0.
         # The other tasks will wait around while this is going on
         if rank == 0:
-            temp = _setup_mpi_helper(builder,comm,name)
+            temp = _setup_mpi_helper(builder,comm,name,save_config)
             cosmo_storage_col,analysis_storage = temp
         comm.Barrier()
 

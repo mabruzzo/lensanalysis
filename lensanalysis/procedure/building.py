@@ -11,24 +11,24 @@ from .smoothing import ConvMapSmoothing
 from ..misc.analysis_collection import default_value_UAPC
 from ..misc.enum_definitions import Descriptor
 
+def _convert_descriptor(descr_input):
+    if isinstance(descr_input,Descriptor):
+        return descr_input
+    elif not isinstance(descr_input,(list,tuple)):
+        raise TypeError
+
+    descr = Descriptor.none
+    for elem in descr_input:
+        descr = descr | elem
+    return descr
+
 def _equal_analysis_object(object_tuple1, object_tuple2):
     assert len(object_tuple1) == 2
     assert len(object_tuple2) == 2
 
     if object_tuple1[1] == object_tuple2[1]:
-        if isinstance(object_tuple1[0], (tuple,list)):
-            obt1_descriptor = Descriptor.none
-            for elem in object_tuple1[0]:
-                obt1_descriptor = obt1_descriptor | elem
-        else:
-            obt1_descriptor = object_tuple1[0]
-
-        if isinstance(object_tuple2[0], (tuple,list)):
-            obt2_descriptor = Descriptor.none
-            for elem in object_tuple2[0]:
-                obt2_descriptor = obt2_descriptor | elem
-        else:
-            obt2_descriptor = object_tuple2[0]
+        obt1_descriptor = _convert_descriptor(object_tuple1[0])
+        obt2_descriptor = _convert_descriptor(object_tuple2[0])
         return obt1_descriptor is obt2_descriptor
     return False
 
@@ -62,24 +62,24 @@ def _wrap_save_step(decorator_step, save_step, following_sequential_step):
     return decorator_step
 
 def build_peak_counting(begin, procedure_config, save_config,
-                        storage_collection, objects_to_save,tomo = False):
+                        storage_collection, objects_to_save,
+                        tomo = False):
     fp_storage = storage_collection.feature_products
 
-    
     if tomo:
-        save_peak_counts = save_config.feaure_products.tomo_peak_counts
+        save_peak_counts = save_config.feature_products.tomo_peak_counts
         peak_count_storage = fp_storage.tomo_peak_counts
         save_peak_loc = save_config.feature_products.tomo_peak_locations
         peak_loc_storage = fp_storage.tomo_peak_locations
         descriptor = Descriptor.tomo
     else:
-        save_peak_counts = save_config.feaure_products.peak_counts
+        save_peak_counts = save_config.feature_products.peak_counts
         peak_count_storage = fp_storage.peak_counts
         save_peak_loc = save_config.feature_products.peak_locations
         peak_loc_storage = fp_storage.peak_locations
         descriptor = Descriptor.none
 
-    if begin_object == (descriptor,"peak_counts"):
+    if begin == (descriptor,"peak_counts"):
         raise ValueError("There is nothing to be done!")
     elif save_peak_counts:
         # get the peak count bins
@@ -131,6 +131,7 @@ def build_smooth_noisy_convergence(begin, procedure_config, save_config,
     if save_config.conv_map.smoothed_noisy_map:
         storage = storage_collection.conv_map.smoothed_noisy_map
         objects_to_save.conv_map.smoothed_noisy_map = False
+        print storage
         save_step = SaveCollectionEntries(storage)
         _wrap_save_step(out, save_step, feature_step)
     else:
@@ -220,7 +221,9 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
     
 def build_procedure(begin_object, procedure_config, save_config,
                     storage_collection):
-    raise RuntimeError("Ensure begin_object is converted to: (descriptor,name)")
+
+    begin_object = (_convert_descriptor(begin_object[0]), begin_object[1])
+
     objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config, save_config,
                                    storage_collection, objects_to_save)
