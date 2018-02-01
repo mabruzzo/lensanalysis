@@ -36,15 +36,16 @@ _noisy = (Descriptor.noisy,)
 _smooth = (Descriptor.smoothed,)
 _noisy_smooth = (Descriptor.smoothed_noisy)
     
-def _check_build_peak_counting(save_config):
+def _check_build_peak_counting(save_config,tomo=False):
     """
     Check whether or not we should build anything related to peak counting.
     """
-    if save_config.feature_products.peak_locations:
-        return True
-    elif save_config.feature_products.peak_counts:
-        return True
-    return False
+    if tomo:
+        return (save_config.feature_products.tomo_peak_locations or
+                save_config.feature_products.tomo_peak_counts)
+    else:
+        return (save_config.feature_products.peak_locations or
+                save_config.feature_products.peak_counts)
 
 def _wrap_save_step(decorator_step, save_step, following_sequential_step):
     """
@@ -61,33 +62,49 @@ def _wrap_save_step(decorator_step, save_step, following_sequential_step):
     return decorator_step
 
 def build_peak_counting(begin, procedure_config, save_config,
-                        storage_collection, objects_to_save):
-    if _equal_analysis_object(begin,((),"peak_counts")):
+                        storage_collection, objects_to_save,tomo = False):
+    fp_storage = storage_collection.feature_products
+
+    
+    if tomo:
+        save_peak_counts = save_config.feaure_products.tomo_peak_counts
+        peak_count_storage = fp_storage.tomo_peak_counts
+        save_peak_loc = save_config.feature_products.tomo_peak_locations
+        peak_loc_storage = fp_storage.tomo_peak_locations
+        descriptor = Descriptor.tomo
+    else:
+        save_peak_counts = save_config.feaure_products.peak_counts
+        peak_count_storage = fp_storage.peak_counts
+        save_peak_loc = save_config.feature_products.peak_locations
+        peak_loc_storage = fp_storage.peak_locations
+        descriptor = Descriptor.none
+
+    if begin_object == (descriptor,"peak_counts"):
         raise ValueError("There is nothing to be done!")
-    elif save_config.feature_products.peak_counts:
+    elif save_peak_counts:
         # get the peak count bins
         peak_count_bins = procedure_config.peak_count_bins()
         # build the binning step
         second_step = BinPeaks(peak_count_bins)
 
-        # check to see if we want to save
-        if save_config.feature_products.peak_counts:
-            storage = storage_collection.feature_products.peak_counts
-            temp = SaveCollectionEntries(storage)
+        if tomo:
+            raise NotImplementedError("Currently don't have ability to use "
+                                      "tomographic histogram")
+        # we can only want to save this
+        if save_peak_counts:
+            temp = SaveCollectionEntries(peak_count_storage)
             second_step.wrapped_step = temp
-
             objects_to_save.feature_products.peak_counts = False
 
         if _equal_analysis_object(begin,((),"peak_loc")):
             return second_step
     else:
-        second_step = None    
+        second_step = None
 
     step = LocatePeaks()
 
-    if save_config.feature_products.peak_locations:
-        storage = storage_collection.feature_products.peak_locations
-        save_step = SaveCollectionEntries(storage)
+    if save_peak_loc:
+        save_step = SaveCollectionEntries(peak_loc_storage)
         objects_to_save.feature_products.peak_locations = False
         _wrap_save_step(step, save_step, second_step)
     else:
@@ -203,6 +220,7 @@ def _build_procedure_helper(begin_object, procedure_config, save_config,
     
 def build_procedure(begin_object, procedure_config, save_config,
                     storage_collection):
+    raise RuntimeError("Ensure begin_object is converted to: (descriptor,name)")
     objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config, save_config,
                                    storage_collection, objects_to_save)
