@@ -1,5 +1,3 @@
-from itertools import chain, combinations, izip_longest
-
 from aenum import Flag
 
 class Descriptor(Flag):
@@ -32,25 +30,3 @@ descriptor_mapping = {Descriptor.tomo : ["tomo","tomographic"],
                       Descriptor.noisy : ["noisy"],
                       Descriptor.none : []}
 
-def all_combinations(omit_analysis_objects = [], omit_descriptors = []):
-    out = ()
-
-    for key,value in analysis_object_descriptors.iteritems():
-        if key not in omit_analysis_objects:
-            cur = (((),key),)
-            descriptors = [descr for descr in value if descr not in
-                           omit_descriptors]
-            #for descr in value:
-            #    if descr in omit_descriptors:
-            #        continue
-            #    else:
-            #        descriptors.append(descr)
-            for i in range(1,len(descriptors)+1):
-                temp = combinations(descriptors,i)
-                temp = izip_longest(temp, (key,), fillvalue = key)
-                cur = chain(cur,temp)
-        out = chain(out,cur)
-    return out
-
-if __name__ == '__main__':
-    print list(all_combinations(["shear_cat"]))
