@@ -191,7 +191,7 @@ def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
 
     return simple_realization_generator(min_r,max_r)
 
-def _setup_mpi_helper(builder,comm):
+def _setup_mpi_helper(builder,comm,name):
     """
     This is a helper function that get's the storage collection. 
 
@@ -203,9 +203,14 @@ def _setup_mpi_helper(builder,comm):
     if cmd_args.fiducial:
         cosmo_storage_col = builder.get_fiducial_storage_collection()
     else:
-        print "Sampled"
         cosmo_storage_col = builder.get_sampled_storage_collection()
-    return cosmo_storage_col
+
+    if name in cosmo_storage_col:
+        analysis_storage = cosmo_storage_col.get_analysis_product_storage(name)
+    else:
+        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
+
+    return cosmo_storage_col,analysis_storage
 
 def setup(cmd_args,comm):
     """
@@ -229,6 +234,7 @@ def setup(cmd_args,comm):
         nprocs = comm.Get_size()
         rank = comm.Get_rank()
 
+    name = cmd_args.id[0]
     if nprocs == 1:
         cosmo_storage_col = _setup_mpi_helper(builder,comm)
     else:
@@ -236,34 +242,16 @@ def setup(cmd_args,comm):
         # check an possible create the directories on rank 0.
         # The other tasks will wait around while this is going on
         if rank == 0:
-            cosmo_storage_col = _setup_mpi_helper(builder,comm)
+            temp = _setup_mpi_helper(builder,comm,name)
+            cosmo_storage_col,analysis_storage = temp
         comm.Barrier()
 
         # now the other tasks with locate the directories. Rank 0 is free to 
         # move on since there is no possibility of an error occuring due to 
         # creating directories in the same place at the same time.
         if rank != 0:
-            cosmo_storage_col = _setup_mpi_helper(builder,comm)
-
-    if cmd_args.fiducial:
-        cosmo_storage_col = builder.get_fiducial_storage_collection()
-    else:
-        print "Sampled"
-        cosmo_storage_col = builder.get_sampled_storage_collection()
-
-    # if using MPI, we need to ensure that all tasks wait for the first task to
-    # load the analysis storage collection for the first time (just in case the
-    # storage collection needs to instantiate collections that did not already
-    # exist)
-
-    name = cmd_args.id[0]
-    if name in cosmo_storage_col:
-        analysis_storage = cosmo_storage_col.get_analysis_product_storage(name)
-    else:
-        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
-
-    # NOW, you can let all of the other mpi tasks catch up.
-
+            temp = _setup_mpi_helper(builder,comm,name)
+            cosmo_storage_col,analysis_storage = temp
 
     # Now, read in the procedure configuration file
     proc_config = ProcedureConfig.from_fname(cmd_args.procedure_config)

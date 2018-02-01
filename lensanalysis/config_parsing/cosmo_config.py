@@ -38,9 +38,6 @@ def _load_conv_storage_collection(path, analysis_collection,
                                   tomo=False):
     """
     Handles the setting up of loading ConvergenceMap Storage Objects.
-
-    Adding save_config in for future refactoring purposes. By knowing which 
-    objects to save, we only initialize the objects that are needed
     """
 
     kappa_save_config = None
@@ -48,36 +45,56 @@ def _load_conv_storage_collection(path, analysis_collection,
         ksc = analysis_collection.tomo_conv_map
         if save_config is not None:
             kappa_save_config = save_config.tomo_conv_map
+        tomo_prefix = 'Tomographic '
     else:
         ksc = analysis_collection.conv_map
         if save_config is not None:
             kappa_save_config = save_config.tomo_conv_map
+        tomo_prefix = ''
+    no_save_config = (kappa_save_config is None)
+
 
     storage_method = storage_config.convergence_map_collection_storage
-    ksc.noiseless_map = _load_single_storage_collection(path,
+    if no_save_config or kappa_save_config.noiseless_map:
+        ksc.noiseless_map = _load_single_storage_collection(path,
+                                                            storage_method,
+                                                            Descriptor.none,
+                                                            tomo)
+        if (not no_save_config) and ksc.noiseless_map is None:
+            raise ValueError(("{:s}Noiseless convergence map storage options "
+                              "not specified").format(tomo_prefix))
+
+    if no_save_config or kappa_save_config.noisy_map:
+        ksc.noisy_map = _load_single_storage_collection(path,
                                                         storage_method,
-                                                        Descriptor.none,
+                                                        Descriptor.noisy,
                                                         tomo)
-    ksc.noisy_map = _load_single_storage_collection(path,
-                                                    storage_method,
-                                                    Descriptor.noisy,
-                                                    tomo)
-    ksc.smoothed_map = _load_single_storage_collection(path, storage_method,
+        if (not no_save_config) and ksc.noisy_map is None:
+            raise ValueError(("{:s}Noisy convergence map storage options not "
+                              "specified").format(tomo_prefix))
+
+    if no_save_config or kappa_save_config.smoothed_map:
+        ksc.smoothed_map = _load_single_storage_collection(path, storage_method,
                                                        Descriptor.smoothed,
                                                        tomo)
-    ksc.smoothed_noisy_map = _load_single_storage_collection(path,
-                                                             storage_method,
-                                                             Descriptor.smoothed_noisy,
-                                                             tomo)
+        if (not no_save_config) and ksc.smoothed_map is None:
+            raise ValueError(("{:s}Smoothed convergence map storage options "
+                              "not specified").format(tomo_prefix))
+
+    if no_save_config or kappa_saved_config.smoothed_noisy_map:
+        temp = _load_single_storage_collection(path, storage_method,
+                                               Descriptor.smoothed_noisy,
+                                               tomo)
+        ksc.smoothed_noisy_map = temp
+        if (not no_save_config) and ksc.smoothed_map is None:
+            raise ValueError(("{:s}Smoothed Noisy convergence map storage "
+                              "options not specified").format(tomo_prefix))
 
 def _load_shear_storage_collection(path, analysis_collection,
                                    storage_config, save_config=None,
                                    tomo=False):
     """
-    Handles the setting up of loading ConvergenceMap Storage Objects.
-
-    Adding save_config in for future refactoring purposes. By knowing which 
-    objects to save, we only initialize the objects that are needed
+    Handles the setting up of loading ShearMap Storage Objects.
     """
 
     shear_save_config = None
@@ -85,23 +102,81 @@ def _load_shear_storage_collection(path, analysis_collection,
         ssc = analysis_collection.tomo_shear_map
         if save_config is not None:
             shear_save_config = save_config.tomo_shear_map
+            tomo_prefix ='Tomographic '
     else:
         ssc = analysis_collection.shear_map
         if save_config is not None:
             shear_save_config = save_config.shear_map
+            tomo_prefix = ''
+    no_save_config = (shear_save_config is None)
 
     storage_method = storage_config.shear_map_collection_storage
+    if no_save_config or shear_save_config.noiseless_map:
+        ssc.noiseless_map = _load_single_storage_collection(path,
+                                                            storage_method,
+                                                            Descriptor.none,
+                                                            tomo)
+        if (not no_save_config) and ssc.noiseless_map is None:
+            raise ValueError(("{:s}Noiseless shear map storage options "
+                              "not specified").format(tomo_prefix))
 
-    ssc.noiseless_map = _load_single_storage_collection(path,
+    if no_save_config or shear_save_config.noisy_map:
+        ssc.noisy_map = _load_single_storage_collection(path,
                                                         storage_method,
-                                                        Descriptor.none,
+                                                        Descriptor.noisy,
                                                         tomo)
-    ssc.noisy_map = _load_single_storage_collection(path,
-                                                    storage_method,
-                                                    Descriptor.noisy,
-                                                    tomo)
+        if (not no_save_config) and ssc.noisy_map is None:
+            raise ValueError(("{:s}Noisy shear map storage options not "
+                              "specified").format(tomo_prefix))
+
+def _load_feature_product_storage_collection(path, analysis_collection,
+                                             storage_config, save_config=None):
+    """
+    Handles the setting up of loading FeatureProduct Storage Objects.
+    """
+
+    fp_save_config = None
+    fpc = analysis_collection.feature_products
+    if save_config is not None:
+        fp_save_config = save_config.feature_products
+
+    no_save_config = (fp_save_config is None)
+    storage_method = storage_config.peak_loc_collection_storage
+    if no_save_config or fp_save_config.peak_locations:
     
-def _load_full_storage_collection(path,storage_config):
+        fpc.peak_locations = _load_single_storage_collection(path,
+                                                             storage_method,
+                                                             Descriptor.none)
+        if (not no_save_config) and fpc.peak_locations is None:
+            raise ValueError(("Peak Location storage options not "
+                              "specified"))
+    if no_save_config or fp_save_config.tomo_peak_locations:
+        temp = _load_single_storage_collection(path, storage_method,
+                                               Descriptor.tomo)
+        fpc.tomo_peak_locations = temp
+        if (not no_save_config) and fpc.tomo_peak_locations is None:
+            raise ValueError(("Tomographic Peak Location storage options not "
+                              "specified"))
+
+    storage_method = storage_config.peak_counts_collection_storage
+    if no_save_config or fp_save_config.peak_counts:
+        fpc.peak_counts = _load_single_storage_collection(path,
+                                                          storage_method,
+                                                          Descriptor.none)
+    if (not no_save_config) and fpc.peak_counts is None:
+            raise ValueError(("Peak Counts storage options not "
+                              "specified"))
+
+    if no_save_config or fp_save_config.tomo_peak_counts:
+        fpc.tomo_peak_counts = _load_single_storage_collection(path,
+                                                               storage_method,
+                                                               Descriptor.tomo)
+    if (not no_save_config) and fpc.tomo_peak_counts is None:
+            raise ValueError(("Tomographic Peak Counts storage options not "
+                              "specified"))
+
+    
+def _load_full_storage_collection(path,storage_config,save_config = None):
     """
     Create the storage collection as you go.
 
@@ -111,35 +186,28 @@ def _load_full_storage_collection(path,storage_config):
     """
     analysis_collection = AnalysisProductCollection.factory()
 
-    # first handle non-tomographic convergence maps
     # kappa storage collection
     ksc = analysis_collection.conv_map
     _load_conv_storage_collection(path, analysis_collection, storage_config,
-                                  save_config=None, tomo=False)
+                                  save_config=save_config, tomo=False)
 
-    # now handle tomographic convergence maps
+    # tomographic convergence maps
     _load_conv_storage_collection(path, analysis_collection, storage_config,
-                                  save_config=None, tomo=True)
+                                  save_config=save_config, tomo=True)
 
     # shear storage collection
-    _load_shear_storage_collection(path, analysis_collection,
-                                   storage_config, save_config=None,
-                                   tomo=False)
-
+    _load_shear_storage_collection(path, analysis_collection, storage_config,
+                                   save_config=safe_config, tomo=False)
+    # tomographic shear storage collection
+    _load_shear_storage_collection(path, analysis_collection, storage_config,
+                                   save_config=safe_config, tomo=True)
     
     
+    _load_feature_product_storage_collection(path, analysis_collection,
+                                             storage_config,
+                                             save_config=save_config)
 
-    # now, finally let's load in the feature product collection
-    fpc = analysis_collection.feature_products
-
-    storage_method = storage_config.peak_loc_collection_storage
-    fpc.peak_locations = _load_single_storage_collection(path,
-                                                         storage_method,
-                                                         Descriptor.none)
-    storage_method = storage_config.peak_counts_collection_storage
-    fpc.peak_counts = _load_single_storage_collection(path,
-                                                      storage_method,
-                                                      Descriptor.none)
+    
     return analysis_collection
 
 
@@ -332,7 +400,8 @@ class CosmoCollectionConfigBuilder(object):
 
 
     def get_fiducial_storage_collection(self,include_cache = False,
-                                        cache_limit=None):
+                                        cache_limit=None,
+                                        save_config = None):
         config_data = self._fiducial_cosmology_config
         storage_config, shear_cat_config = _setup_config_parser(config_data)
         cache = None
