@@ -8,8 +8,7 @@ from mpi4py import MPI
 from lensanalysis.config_parsing.cosmo_config import \
     CosmoCollectionConfigBuilder
 from lensanalysis.config_parsing.procedure_config import ProcedureConfig
-from lensanalysis.misc.analysis_collection import get_analysis_col_value, \
-    default_value_UAPC
+from lensanalysis.misc.analysis_collection import default_value_UAPC
 from lensanalysis.misc.enum_definitions import Descriptor
 from lensanalysis.misc.log import logger
 from lensanalysis.misc.name_parser import SafeNameParser
@@ -85,43 +84,29 @@ parser.add_argument("id",nargs=1,
                     help = "The name of cosmology to post-process.")
 
 
-
-def setup_saved_products_helper(in_progress, analysis_storage_collection,
-                                iterable):
+def setup_saved_products_helper(in_progress, iterable):
+    # we actually don't need to parse anythng. That should be handled internally
     parser = SafeNameParser()
 
     for elem in iterable:
         descriptors,object_name = parser.parse_name(elem)
-        if Descriptor.tomo in descriptors:
-            raise NotImplementedError("Not currently equipped to handle "
-                                      "tomography")
-        storage = get_analysis_col_value(analysis_storage_collection,
-                                         descriptors, object_name)
-        if storage is None:
-            raise ValueError(("{:s}, {:s} does not have any storage object "
-                              "initialized").format(str(descriptors),
-                                                    object_name))
         in_progress[(descriptors,object_name)] = True
 
-def determine_saved_products(cmd_args, proc_config,
-                             analysis_storage_collection):
+def determine_save_config(cmd_args, proc_config):
     """
     Comes up with an instance of AnalysisProductCollection with True values 
     for every analysis product we want to save.
     """
     out = default_value_UAPC(False)
-
-    if cmd_args.save is not None:
-        setup_saved_products_helper(out, analysis_storage_collection,
-                                    cmd_args.save)
+    
+     if cmd_args.save is not None:
+        setup_saved_products_helper(out, cmd_args.save)
     else:
         if cmd_args.include is not None:
-            setup_saved_products_helper(out, analysis_storage_collection,
-                                        cmd_args.include)
-        setup_saved_products_helper(out, analysis_storage_collection,
+            setup_saved_products_helper(out, cmd_args.include)
+        setup_saved_products_helper(out,
                                     proc_config.get_default_saved_products())
     return out
-
 
 def _starting_procedure_step(cmd_args,name,analysis_storage,cosmo_storage_col):
     parser = SafeNameParser()
@@ -191,7 +176,7 @@ def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
 
     return simple_realization_generator(min_r,max_r)
 
-def _setup_mpi_helper(builder,comm,name):
+def _setup_mpi_helper(builder,comm,name,save_config=None):
     """
     This is a helper function that get's the storage collection. 
 
@@ -205,10 +190,13 @@ def _setup_mpi_helper(builder,comm,name):
     else:
         cosmo_storage_col = builder.get_sampled_storage_collection()
 
+    save = save_config
     if name in cosmo_storage_col:
-        analysis_storage = cosmo_storage_col.get_analysis_product_storage(name)
+        analysis_storage = cosmo_storage_col.get_analysis_product_storage(name,
+                                                                          save)
     else:
-        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name)
+        analysis_storage = cosmo_storage_col.add_analysis_product_storage(name,
+                                                                          save)
 
     return cosmo_storage_col,analysis_storage
 
@@ -224,7 +212,21 @@ def setup(cmd_args,comm):
     """
 
     logging.info("Setting up the procedure")
-    # first let's build the cosmo collection config builder
+
+    # first, read in the procedure configuration file
+    proc_config = ProcedureConfig.from_fname(cmd_args.procedure_config)
+    
+    if cmd_args.save is not None and cmd_args.include is not None:
+        raise ValueError("-s/--save and -i/--include cannot both be set")
+
+    # at this point, create an instance of analysis product collection and fill
+    # in the appropriate locations with True/False (whether or not we wish to
+    # save the file.
+    save_config = determine_saved_products(cmd_args, proc_config)
+    
+    # now let's build the cosmo collection config builder
+    # while doing this check to ensure that we only initialize necessary save
+    # files
     builder = CosmoCollectionConfigBuilder.from_config_file(cmd_args.config)
 
     if comm is None:
@@ -236,7 +238,7 @@ def setup(cmd_args,comm):
 
     name = cmd_args.id[0]
     if nprocs == 1:
-        cosmo_storage_col = _setup_mpi_helper(builder,comm)
+        cosmo_storage_col = _setup_mpi_helper(builder,comm,save_config)
     else:
         rank = comm.Get_rank()
         # check an possible create the directories on rank 0.
@@ -252,25 +254,6 @@ def setup(cmd_args,comm):
         if rank != 0:
             temp = _setup_mpi_helper(builder,comm,name)
             cosmo_storage_col,analysis_storage = temp
-
-    # Now, read in the procedure configuration file
-    proc_config = ProcedureConfig.from_fname(cmd_args.procedure_config)
-    
-    if cmd_args.save is not None and cmd_args.include is not None:
-        raise ValueError("-s/--save and -i/--include cannot both be set")
-
-    # at this point, create an instance of analysis product collection and fill
-    # in the appropriate locations with True/None (whether or not we wish to
-    # save the file.
-    # while doing this check to ensure that such storage locations exist
-    save_config = determine_saved_products(cmd_args, proc_config,
-                                           analysis_storage)
-    # now we do a lttle error checking
-
-    # check to see if we are going backwards in our procedure
-    # check to if we are computing unnoisy and noisy maps
-    # circumvent these things if force flag was enabled
-
 
     # finally, we move to actually building our procedure.
     
@@ -320,20 +303,9 @@ def driver(cmd_args):
     else:
         procedure,generator = setup(cmd_args,comm)
         procedure.apply_to_iterable(generator)
-    
 
-
-"""
-I guess there is a sequence of events
-- 
-- I guess I will allow for starting from an arbitrary point of procedure
-- Configuration file will allow for specific sequence
-- If there are conflicts about saving we will raise an error. (IE configuration 
-  says yes about saving but elsewhere we prevented saving).
-"""
 
 if __name__ == '__main__':
     #Parse command arguments
     cmd_args = parser.parse_args()
     driver(cmd_args)
-

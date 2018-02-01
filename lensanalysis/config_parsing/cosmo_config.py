@@ -267,7 +267,7 @@ class CosmologyAnalysisCollection(object):
         temp = os.listdir(self_root_path)
         return [path for path in temp if os.path.isdir(path)]
 
-    def add_analysis_product_storage(self,name):
+    def add_analysis_product_storage(self,name,save_config=None):
         """
         Should probably be using some kind of secondary list where we compare 
         the cosmology collection to allowed cosmology collections.
@@ -278,12 +278,13 @@ class CosmologyAnalysisCollection(object):
         new_path = os.path.join(self._root_path,name)
         os.mkdir(new_path)
         temp = _load_full_storage_collection(new_path,
-                                             self._storage_config)
+                                             self._storage_config,
+                                             save_config)
         if self._cache is not None:
             self._cache[name] = temp
         return temp
 
-    def get_analysis_product_storage(self,name):
+    def get_analysis_product_storage(self,name,save_config=None):
         if self._cache is not None:
             if name in self._cache:
                 return self._cache[name]
@@ -293,7 +294,8 @@ class CosmologyAnalysisCollection(object):
         
         path = os.path.join(self._root_path,name)
         temp = _load_full_storage_collection(path,
-                                             self._storage_config)
+                                             self._storage_config,
+                                             save_config)
         if self._cache is not None:
             self._cache[name] = temp
         return temp
