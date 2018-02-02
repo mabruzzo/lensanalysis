@@ -14,7 +14,7 @@ def _load_single_storage_collection(path, storage_config_method, descriptions,
     This is probably not the way to do this.
     """
     if tomo_descriptor:
-        descriptors = descriptors | Descriptor.tomo
+        descriptions = descriptions | Descriptor.tomo
     
     storage = storage_config_method(descriptions,path)
     if storage is None:
@@ -325,10 +325,10 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
 
     def __init__(self,cosmo_name, root, storage_config, root_shear,
                  shear_cat_config, cache = None):
-        super(FiducialCosmologyCollection,self).__init__(root, storage_config,
+        super(FiducialStorageCollection,self).__init__(root, storage_config,
                                                          root_shear,
                                                          shear_cat_config,
-                                                         cache = None)
+                                                         cache = cache)
         self._cosmo_name = cosmo_name
 
     def get_cosmo_name(self):

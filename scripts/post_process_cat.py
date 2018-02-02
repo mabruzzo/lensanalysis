@@ -252,7 +252,7 @@ def setup(cmd_args,comm):
         # move on since there is no possibility of an error occuring due to 
         # creating directories in the same place at the same time.
         if rank != 0:
-            temp = _setup_mpi_helper(builder,comm,name)
+            temp = _setup_mpi_helper(builder,comm,name,save_config)
             cosmo_storage_col,analysis_storage = temp
 
     # finally, we move to actually building our procedure.
