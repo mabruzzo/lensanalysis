@@ -116,6 +116,31 @@ class BaseFnameFormatter(AbstractFnameFormatter):
 
         return self._fname_template.format(*args)
 
+    def determine_subdir(self,min_realization,max_realization):
+        return None
+
+class AutoKwargBaseFnameFormatter(AbstractFnameFormatter):
+    """
+    Object responsible for formatting the file name.
+
+    This serves the exact same purpose of BaseFnameFormatter. The difference is 
+    that this class requires that the string formatting uses named placeholders 
+    rather than positional arguments (while tracking the names internally).
+
+    By requiring this, checking initialization arguments should be immensely 
+    simplified.
+
+    Some simple notes:
+    to use a kwarg called min: 
+        "{min}".format(min=3) -> "3"
+    To use a kwarg called min with padding:
+        "{min:03}".format(min=3) -> "003"
+    Other example:
+        '{min:03}-{max:03} {min:05}'.format(min=1,max=289) -> '001-289 00001'
+
+    https://stackoverflow.com/a/25997051 shows how to extract the name 
+    placeholders from the template.
+    """
     
 class FnameFormatterDecorator(AbstractFnameFormatter):
     __metaclass__ = ABCMeta
@@ -223,3 +248,25 @@ class RealizationBinnedSubdirectoryFormatter(SubdirectoryFnameFormatter):
                 args.append((bin_min+bin_max)/2)
         temp = self._directory_template.format(*args)
         return temp
+
+    def determine_subdir(self,min_realization,max_realization):
+        """
+        max_realization is inclusive
+        """
+        # compute the bin number of the minimum realization
+        min_bin_num = (min_realization-1)/self._realization_per_dir
+
+        # compute the bin number of the maximum realization
+        max_bin_num = (max_realization-1)/self._realization_per_dir
+
+        out = []
+        # now let's enumerate all of the bins
+        for bin_num in xrange(min_bin_num,max_bin_num+1):
+            bin_min = (self._realization_per_dir * bin_num)+1
+            cur_subdir = self._determine_dir_name(**{self._realization_field:
+                                                    bin_min})
+            bin_max = bin_min + self._realization_per_dir -1
+            further_subdir = self._wrapped_formatter.determine_subdir(bin_min,
+                                                                      bin_max)
+            out.append((cur_subdir,further_subdir))
+        return out

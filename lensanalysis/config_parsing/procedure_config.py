@@ -37,6 +37,22 @@ class ProcedureConfig(object):
     def get_noise_seed(self):
         return self._config.getint("AnalysisOptions", "noise_seed")
 
+    def diff_noise_seed_per_tomo_bin(self):
+
+        if self._config.has_option("AnalysisOptions","separate_tomo_bin_seed"):
+            return self._config.getboolean("AnalysisOptions",
+                                           "separate_tomo_bin_seed")
+        return True
+
+    def noise_rs_correction(self):
+        """
+        Whether the rs_correction should be applied when adding noise.
+        Default is False.
+        """
+        if self._config.has_option("AnalysisOptions","rs_correction"):
+            return self._config.getboolean("AnalysisOptions", "rs_correction")
+        return False
+    
     def get_smoothing_scale(self):
         value = self._config.getfloat("AnalysisOptions",
                                       "smoothing_scale")

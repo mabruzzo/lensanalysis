@@ -196,6 +196,19 @@ class _BaseFileGroupCollection(object):
                                                           self._eid_field:eid})
         return '/'.join((self.root_dir,fname))
 
+def _construct_subdir(root_dir,subdir_l):
+    """
+    Helper function to ensure that all necessary subdirectories exist.
+    """
+    for subdir,subsequent_subdir in subdir_l:
+        subdir_path = os.path.join(root_dir,subdir)
+        if not os.path.isdir(subdir_path):
+            if os.path.exists(subdir_path):
+                raise RuntimeError(("{} already exists but is not a "
+                                    "directory.").format(subdir_path))
+            os.mkdir(subdir_path)
+        if subsequent_subdir is not None:
+            _construct_subdir(subdir_path,subsequent_subdir)
 
 class FileGroupCollectionStorage(_BaseFileGroupCollection):
     """
@@ -263,6 +276,30 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
                     continue
             return False
         return True
+
+    def construct_subdirectories(self, start_realization,stop_realization):
+        """
+        Ensures that all subdirectories exist.
+
+        While we would probably be better off tring to create the subdir as 
+        they are needed (instead of all at once like this method does), this 
+        would require an overhaul of the classes so that when the program is 
+        run in parallel, there is no possibility of conflicts.
+
+        Parameters
+        ----------
+        start_realization : int
+            The minimum realization that may need to be saved
+        stop_realization : int
+            stop_realization-1 is the last realization that may need to be 
+            saved.
+        """
+
+        subdir_l = self._format_fname.determine_subdir(start_realization,
+                                                       stop_realization-1)
+        if sub_dir_l is None:
+            return
+        _construct_subdir(self.root_dir,subdir_l)
 
 _shear_map_writer = lambda fname, shear_map : shear_map.save(fname)
 class ShearMapCollectionFGStorage(FileGroupCollectionStorage):

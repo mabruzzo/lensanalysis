@@ -35,9 +35,27 @@ class SimpleRealizationBinnedSubdirectoryFormatterTestCase(unittest.TestCase):
                                                         "bin_num" : 5}),
                          '289-576/WLshear_cat_bin5_0289r.fits')
 
+    def test_determine_subdir_1(self):
+        self.assertEqual(self.formatter.determine_subdir(1,1000),
+                         [('1-288',None),
+                          ('289-576',None),
+                          ('577-864',None),
+                          ('865-1152',None)])
+
+    def test_determine_subdir_2(self):
+        self.assertEqual(self.formatter.determine_subdir(589,589),
+                         [('577-864',None)])
+
+    def test_determine_subdir_3(self):
+        self.assertEqual(self.formatter.determine_subdir(352,900),
+                         [('289-576',None),
+                          ('577-864',None),
+                          ('865-1152',None)])
+
 def suite():
     tests = ['test_simple_input', 'test_max_realization_in_bin',
-             'test_min_realization_second_bin']
+             'test_min_realization_second_bin', 'test_determine_subdir_1',
+             'test_determine_subdir_2', 'test_determine_subdir_3']
     test_case_class = SimpleRealizationBinnedSubdirectoryFormatterTestCase
     return unittest.TestSuite(map(test_case_class, tests))
 
