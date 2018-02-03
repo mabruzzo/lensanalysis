@@ -9,7 +9,9 @@ from ..misc.analysis_collection import AnalysisProductCollection
 from ..misc.enum_definitions import Descriptor
 
 def _load_single_storage_collection(path, storage_config_method, descriptions,
-                                    tomo_descriptor = False):
+                                    tomo_descriptor = False,
+                                    start_realization = None,
+                                    stop_realization = None):
     """
     This is probably not the way to do this.
     """
@@ -17,6 +19,10 @@ def _load_single_storage_collection(path, storage_config_method, descriptions,
         descriptions = descriptions | Descriptor.tomo
     
     storage = storage_config_method(descriptions,path)
+    if start_realization is not None and stop_realization is not None:
+        # construct any necessary subdirectories
+        storage.construct_subdirectories(start_realization, stop_realization)
+
     if storage is None:
         return None
     new_path = os.path.normpath(storage.root_dir)
