@@ -1,7 +1,24 @@
 High Priority
 =============
 
-Make necessary edits to allow for tomography 
+Refactor
+  - suppress the warning raised by numpy, when locating the peaks for a masked
+    convergence map. Lenstools had taken steps to make sure that this operation
+    is completed correctly. Therefore this warning is unecessary, and suggests
+    there is a problem where none exist/
+
+New Features
+  - to allow for tomography, finish updating the Storage Object construction so
+    that which Storage Objects can save Tomographic objects to different
+    subdirectories (the necessary infrastructure to ensure that the
+    subdirectories are created is already in place, and can be used while the
+    program is run with MPI)
+  - Add a new subclass of IntermediateStep - RebinShearCat and update the
+    procedure construction so that can be made use of.
+  - Allow for the Creation of unique histogram bins for tomographic peak
+    (in other words, allow different tomographic bins to have different
+    histogram bins).
+    
 
 Low-Mid Priority
 ================
@@ -9,27 +26,26 @@ Low-Mid Priority
 Refactoring
   - Centralize all parsing of object names & descriptors. Currently it's done
     in at least 2 separate spots using 2 sets of functions
-  - Refactor DescriptorEnum so that it draws from the equivalent of python
-    3.6.4's enum.Flag class (https://docs.python.org/3/library/enum.html). This
-    would greatly streamline the process of checking equivalence of 2
-    combinations of flags. It may be possible to draw from the source code they
-    include on the webpage and subclass Enum from the enum34 library.
   - Come up with a way to keep track of the analysis object names in accordance
     with the open/closed principle
   - refactor the building of the procedure to be in accordance with the open
     closed principle
   - Update the FnameFormatter class to take advantage of keyword arguments from
-    newstyle string formatting (need to make sure its possible to specify a
-    keyword argument that corresponds to an int and specify a minimum amount of
-    zero padding
+    newstyle string formatting. The basic idea behind how to do this under a
+    class declaration in fname_formatter.py
   - Allow for exclusive specification of Fiducial/Sampled Cosmology collections
     (currently it requires both)
+  - allow for the initialization from an arbitrary analysis object that is
+    used in our analysis (currently post_process_cat.py can only start from
+    shear_cat)
 
 New Features
   - Ability to post-process single-z Convergence Map or a Shear Catalog from a
-    single shear catalog
+    single shear catalog using a single script (this will involve writing a new
+    procedure for the former)
   - Ability to keep track of collections of analysis products with different
     value characteristics in a given analysis collection (mainly different
-    smoothing scales & possibly different tomography bins, peak counting bins,
-    noise addition schemes)
+    smoothing scales & possibly different tomography bins, peak counting bins)
   - "Emulator-like Class" that interpolates the chi-squared values
+  - add option to compute features without adding noise (or objects that
+    already have noise).
