@@ -133,8 +133,7 @@ def simple_realization_generator(min_realization,max_realization):
         logging.info("Beginning Realization {:05d}".format(i))
         yield None, DataPacket(i)
 
-def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
-    
+def _get_min_max_realizations(cmd_args,proc_config):
     if cmd_args.min_realization is not None:
         min_realization = cmd_args.min_realization
         assert isinstance(min_realization, int)
@@ -151,6 +150,12 @@ def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
         max_realization = proc_config.get_max_realization()
 
     assert max_realization>= min_realization
+    return min_realization,max_realization
+
+def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
+    
+    min_realization,max_realization = _get_min_max_realizations(cmd_args,
+                                                                proc_config)
 
     if nprocs >1:
         num_real = max_realization - min_realization +1
@@ -199,6 +204,22 @@ def _setup_mpi_helper(builder,comm,name,save_config=None):
 
     return cosmo_storage_col,analysis_storage
 
+def _setup_subdir(storage_collection,cmd_args,proc_config):
+    """
+    Ensures that the required subdirectories exist for any storage object 
+    that saves different realizations in different subdirectories.
+    """
+    min_realization,max_realization = _get_min_max_realizations(cmd_args,
+                                                                proc_config)
+    # ordinarily I refrain from using the mapping interface of
+    # storage_collection since each storage object is a different class,
+    # but in this case I am taking advantage of how they must be instances of
+    # (virtual) subclasses of CollectionStorage or None
+    for elem in storage_collection.values():
+        if elem is not None:
+            elem.construct_subdirectories(min_realization,
+                                          max_realization+1)
+
 def setup(cmd_args,comm):
     """
     Parameters
@@ -239,6 +260,7 @@ def setup(cmd_args,comm):
     if nprocs == 1:
         temp = _setup_mpi_helper(builder,comm,name,save_config)
         cosmo_storage_col,analysis_storage=temp
+        _setup_subdir(analysis_storage,cmd_args,proc_config)
     else:
         rank = comm.Get_rank()
         # check an possible create the directories on rank 0.
@@ -246,6 +268,7 @@ def setup(cmd_args,comm):
         if rank == 0:
             temp = _setup_mpi_helper(builder,comm,name,save_config)
             cosmo_storage_col,analysis_storage = temp
+            _setup_subdir(analysis_storage,cmd_args,proc_config)
         comm.Barrier()
 
         # now the other tasks with locate the directories. Rank 0 is free to 
@@ -254,6 +277,9 @@ def setup(cmd_args,comm):
         if rank != 0:
             temp = _setup_mpi_helper(builder,comm,name,save_config)
             cosmo_storage_col,analysis_storage = temp
+            # we do NOT call _setup_subdir here. We already called that for the 
+            # rank 0 process and it created all subdirectories need for
+            # realizations saved by any rank process.
 
     # finally, we move to actually building our procedure.
     

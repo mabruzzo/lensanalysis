@@ -5,23 +5,18 @@ import os.path
 
 from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
 
-from ..misc.analysis_collection import AnalysisProductCollection
+from ..misc.analysis_collection import UniformAnalysisProductCollection
 from ..misc.enum_definitions import Descriptor
 
 def _load_single_storage_collection(path, storage_config_method, descriptions,
-                                    tomo_descriptor = False,
-                                    start_realization = None,
-                                    stop_realization = None):
+                                    tomo_descriptor = False):
     """
     This is probably not the way to do this.
     """
     if tomo_descriptor:
         descriptions = descriptions | Descriptor.tomo
-    
+
     storage = storage_config_method(descriptions,path)
-    if start_realization is not None and stop_realization is not None:
-        # construct any necessary subdirectories
-        storage.construct_subdirectories(start_realization, stop_realization)
 
     if storage is None:
         return None
@@ -190,7 +185,10 @@ def _load_full_storage_collection(path,storage_config,save_config = None):
 
     Come back and update after allowing for tomography.
     """
-    analysis_collection = AnalysisProductCollection.factory()
+    # the storage collection is uniform in the sense that all
+    # AnalysisProductObjects must be None or instances of (virtual) subclasses
+    # of CollectionStorage
+    analysis_collection = UniformAnalysisProductCollection.factory()
 
     # kappa storage collection
     ksc = analysis_collection.conv_map
