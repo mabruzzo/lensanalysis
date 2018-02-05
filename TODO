@@ -1,18 +1,7 @@
 High Priority
 =============
 
-Refactor
-  - suppress the warning raised by numpy, when locating the peaks for a masked
-    convergence map. Lenstools had taken steps to make sure that this operation
-    is completed correctly. Therefore this warning is unecessary, and suggests
-    there is a problem where none exist/
-
 New Features
-  - to allow for tomography, finish updating the Storage Object construction so
-    that which Storage Objects can save Tomographic objects to different
-    subdirectories (the necessary infrastructure to ensure that the
-    subdirectories are created is already in place, and can be used while the
-    program is run with MPI)
   - Add a new subclass of IntermediateStep - RebinShearCat and update the
     procedure construction so that can be made use of.
   - Allow for the Creation of unique histogram bins for tomographic peak

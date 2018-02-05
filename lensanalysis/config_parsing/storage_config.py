@@ -253,7 +253,7 @@ def _create_collection_storage(descriptors,root_dir,section_name,
                                                             _normal_suffix_dict,
                                                             config, "General",
                                                             "tomo",
-                                                            allow_sub_dir=False)
+                                                            allow_sub_dir=True)
 
     if Descriptor.tomo in descriptors:
         nbins = config.getint("General","num_tomo_bins")

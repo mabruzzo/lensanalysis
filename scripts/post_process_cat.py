@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import traceback
+import warnings
 
 from mpi4py import MPI
 
@@ -23,6 +24,18 @@ this script will post process mock shear catalogs.
 Ideally, there will ultimately be a script that can post process any lensing 
 product.
 """
+
+# we are filtering a warning raised when we are locating peaks in masked
+# convergence maps. Special care had been taken by the author of lensanalysis
+# to appropriately handle the circumstance, so the raised warning is unecessary
+# and implies that there is an issue where none exists. 
+warnings.filterwarnings(action = "ignore",
+                        message = ("invalid value encountered in "
+                                   "(less_equal|greater_equal)"),
+                        module = 'lenstools.image.convergence',
+                        lineno = 956,
+                        category = RuntimeWarning)
+
 
 description = ("A program that post processes Shear Catalogs and computes "
                "features to constrain cosmologies.\n\n"
