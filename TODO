@@ -13,8 +13,6 @@ Low-Mid Priority
 ================
 
 Refactoring
-  - Centralize all parsing of object names & descriptors. Currently it's done
-    in at least 2 separate spots using 2 sets of functions
   - Come up with a way to keep track of the analysis object names in accordance
     with the open/closed principle
   - refactor the building of the procedure to be in accordance with the open
