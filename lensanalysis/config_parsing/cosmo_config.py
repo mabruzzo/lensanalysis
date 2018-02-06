@@ -16,6 +16,7 @@ def _load_single_storage_collection(path, storage_config_method, descriptions,
     if tomo_descriptor:
         descriptions = descriptions | Descriptor.tomo
 
+
     storage = storage_config_method(descriptions,path)
 
     if storage is None:

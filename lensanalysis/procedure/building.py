@@ -79,7 +79,7 @@ def build_peak_counting(begin, procedure_config, storage_collection,
             temp = SaveCollectionEntries(peak_count_storage)
             second_step.wrapped_step = temp
             if tomo:
-                objects_to_save.feature_products.peak_counts = False
+                objects_to_save.feature_products.tomo_peak_counts = False
             else:
                 objects_to_save.feature_products.peak_counts = False
 
@@ -93,7 +93,7 @@ def build_peak_counting(begin, procedure_config, storage_collection,
     if save_peak_loc:
         save_step = SaveCollectionEntries(peak_loc_storage)
         if tomo:
-            objects_to_save.feature_products.peak_locations = False
+            objects_to_save.feature_products.tomo_peak_locations = False
         else:
             objects_to_save.feature_products.peak_locations = False
         _wrap_save_step(step, save_step, second_step)
@@ -250,7 +250,7 @@ def _build_procedure_helper(begin_object, procedure_config,
                                                 procedure_config,
                                                 storage_collection,
                                                 objects_to_save,
-                                                tomo =False)
+                                                tomo =True)
 
     if tomo_proc is not None:
         # need to wrap the steps for rebinning if necessary

@@ -28,10 +28,10 @@ def _check_unallowed_descriptors(descriptors,unallowed_descriptors):
     if (descriptors & unallowed_descriptors) != Descriptor.none:
         raise ValueError("{0!r} is not an allowed descriptor".format(descriptors))
 
-def _descriptor_string_prefix(descriptor):
+def _descriptor_string_prefix(descriptor, noiseless_prefix = True):
     if Descriptor.none is descriptor:
         return "noiseless"
-    elif Descriptor.tomo is descriptor:
+    elif Descriptor.tomo is descriptor and noiseless_prefix:
         return "tomo_noiseless"
 
     temp_l = []
@@ -228,7 +228,8 @@ def _create_collection_storage(descriptors,root_dir,section_name,
         The suffix of the option that gives the file name template. Default is 
         'fname'.
     """
-    string_prefix = _descriptor_string_prefix(descriptors)
+
+    string_prefix = _descriptor_string_prefix(descriptors,noiseless_prefix)
     if not noiseless_prefix and string_prefix == "noiseless":
         string_prefix = None
     make_storage_option = _option_builder(string_prefix, core_option_name,
@@ -236,6 +237,7 @@ def _create_collection_storage(descriptors,root_dir,section_name,
     make_storage = _check_create_storage(config, section_name,
                                          make_storage_option,
                                          default = False)
+
     if not make_storage:
         return None
 

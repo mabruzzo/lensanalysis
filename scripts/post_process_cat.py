@@ -327,7 +327,6 @@ def driver(cmd_args):
     nprocs = comm.Get_size()
     if nprocs == 1:
         comm = None
-    print "CHECKPOINT A"
 
     if comm is not None:
         try:
