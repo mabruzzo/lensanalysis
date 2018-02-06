@@ -83,7 +83,7 @@ def build_peak_counting(begin, procedure_config, storage_collection,
             else:
                 objects_to_save.feature_products.peak_counts = False
 
-        if begin == (Descriptor.None,"peak_loc")):
+        if begin == (Descriptor.None,"peak_loc"):
             return second_step
     else:
         second_step = None
@@ -220,7 +220,7 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
     recent_step = build_smooth_noisy_convergence(begin_object, procedure_config,
                                                  storage_collection,
                                                  objects_to_save,
-                                                 feature_step, tomo = tomo):
+                                                 feature_step, tomo = tomo)
 
     if begin_object == (Descriptor.noisy | extra_descr, "shear_map"):
         return recent_step

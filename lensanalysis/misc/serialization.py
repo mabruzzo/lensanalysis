@@ -295,9 +295,9 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
             saved.
         """
 
-        subdir_l = self._format_fname.determine_subdir(start_realization,
-                                                       stop_realization-1)
-        if sub_dir_l is None:
+        subdir_l = self.fname_formatter.determine_subdir(start_realization,
+                                                         stop_realization-1)
+        if subdir_l is None:
             return
         _construct_subdir(self.root_dir,subdir_l)
 
