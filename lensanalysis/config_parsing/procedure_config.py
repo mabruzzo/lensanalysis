@@ -52,6 +52,17 @@ class ProcedureConfig(object):
         if self._config.has_option("AnalysisOptions","rs_correction"):
             return self._config.getboolean("AnalysisOptions", "rs_correction")
         return False
+
+    def mask_convergence_conversion(self):
+        """
+        Whether the convergence map should be masked if a masked shear map is 
+        converted to the convergence map. Default is False.
+        """
+        if self._config.has_option("AnalysisOptions",
+                                   "mask_convergence_conversion"):
+            return self._config.getboolean("AnalysisOptions",
+                                           "mask_convergence_conversion")
+        return False
     
     def get_smoothing_scale(self):
         value = self._config.getfloat("AnalysisOptions",

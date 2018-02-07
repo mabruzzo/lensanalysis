@@ -18,9 +18,10 @@ def _unmasking(shear_map,mask,fill):
     shear_map.data[0][mask] = 0.0
     shear_map.data[1][mask] = 0.0
 
-def _remasking(shear_map,conv_map,mask):
-    conv_map.mask(np.logical_not(mask).astype(np.int8),
-                  inplace = True)
+def _remasking(shear_map,conv_map,mask,mask_conv = True):
+    if mask_conv:
+        conv_map.mask(np.logical_not(mask).astype(np.int8),
+                      inplace = True)
     shear_map.data[0][mask] = np.nan
     shear_map.data[1][mask] = np.nan
 
@@ -167,7 +168,8 @@ def _zero_padded_fourierEB(shear_map, padding):
 
 def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
                                                fft_kernel = None,
-                                               map_mask = None, fill = 0):
+                                               map_mask = None, fill = 0,
+                                               mask_result = False):
     """
     Main function for converting shear map to smoothed convergence map.
 
@@ -191,6 +193,9 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     fill : float or int, optional
         The value we fill in at the masked value when we perform the fourier 
         transform. Default is 0.
+    mask_result : bool, optional
+        Whether or not the resulting convergence map should be masked. Default 
+        is False.
     """
     assert fft_kernel is None or isinstance(fft_kernel,np.ndarray)
     assert pad_axis >= 0
@@ -212,7 +217,7 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     kwargs = dict((k,getattr(self,k)) for k in shear_map._extra_attributes)
     conv_map = ConvergenceMap(temp[:(axis0-pad_axis),:(axis1-pad_axis)],
                               shear_map.side_angle, **kwargs)
-    _remasking(shear_map,conv_map,mask)
+    _remasking(shear_map,conv_map,mask,mask_conv =mask_result)
     return conv_map
 
 
@@ -263,7 +268,7 @@ def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
 
 def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
                                           truncate = 4.0, map_mask = None,
-                                          fill = 0):
+                                          fill = 0, mask_result = False):
     """
     Converting shear map to smoothed convergence map.
 
@@ -273,7 +278,7 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
         The shear map we will be converting. If mask is None, then I will 
         just assume everywhere that is NaN, is to be masked.
     scale_angle : astropy.Quantity
-        The angle of the Gaussian
+        The anglular size of one standard deviation of the Gaussian.
     truncate : float
         Truncate the Gaussian Filter at this many standard deviations
     mask : np.ndarray,optional
@@ -282,6 +287,9 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
     fill : float or int, optional
         The value we fill in at the masked value when we perform the fourier 
         transform. Default is 0.
+    mask_result : bool, optional
+        Whether or not the resulting convergence map should be masked. Default 
+        is False.
     """
     sigma_pix = _get_smooth_scale(shear_map,scale_angle)
     conv_map_length = shear_map.data.shape[-1]
@@ -290,4 +298,4 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
 
     return convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
                                                       fft_kernel, map_mask,
-                                                      fill)
+                                                      fill, mask_result)

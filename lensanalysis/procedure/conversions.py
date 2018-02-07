@@ -68,6 +68,8 @@ class ShearMapToConvMap(ConversionProcedureStep):
     Converts collections of shear maps into collections of convergence maps.
     """
     def conversion_operation(self,data_object,packet):
+        raise RuntimeError("Need to implement option about whether or not the "
+                           "resulting map should be remasked")
         logprocedure.debug(("Converting shear map(s) into convergence map(s) "
                             "for realiztion {:d}").format(packet.data_id))
 
@@ -87,12 +89,17 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         The angle along the edge of the convergence map.
     scale_angle : astropy.Quantity
         Size of smoothing to be performed. Must have units.
+    mask_result : bool, optional
+        Whether or not the resulting convergence map should be masked. Default 
+        is False.
     """
 
-    def __init__(self,npixel,edge_angle,scale_angle):
+    def __init__(self,npixel,edge_angle,scale_angle,mask_result = False):
         assert npixel>0
-        assert edge_angle.unit.physical_type == "angle" and edge_angle.value > 0
-        assert scale_angle.unit.physical_type == "angle" and scale_angle.value > 0
+        assert (edge_angle.unit.physical_type == "angle" and
+                edge_angle.value > 0)
+        assert (scale_angle.unit.physical_type == "angle" and
+                scale_angle.value > 0)
 
         sigma_pix = (scale_angle * float(npixel)
                      / (edge_angle)).decompose().value
@@ -101,7 +108,9 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.pad_axis = pad_axis
         self.npixel = npixel
         self.side_angle = edge_angle
-        
+
+        self.mask_result = mask_result
+
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "
                             "map(s) for realization "
@@ -113,7 +122,9 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
             assert shear_map.data.shape[-1] == self.npixel
             conv = convert_shear_to_smoothed_convergence_main(shear_map,
                                                               self.pad_axis,
-                                                              self.fft_kernel)
+                                                              self.fft_kernel,
+                                                              None, 0,
+                                                              self.mask_result)
             out.append(conv)
         return out
 

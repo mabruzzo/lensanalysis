@@ -13,6 +13,11 @@ Low-Mid Priority
 ================
 
 Refactoring
+  - Refactor steps involving smoothing and Converting Shear maps. As of now we
+    can do both at once or do each separately. This is probably fine (we
+    definitely want to be able to do the smoothing separately), but we
+    should probably create specific interfaces for each process and then
+    combined procedure implement both interfaces.
   - Come up with a way to keep track of the analysis object names in accordance
     with the open/closed principle
   - refactor the building of the procedure to be in accordance with the open
