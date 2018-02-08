@@ -273,7 +273,10 @@ def _build_procedure_helper(begin_object, procedure_config,
                          "computing tomographic or non-tomographic quantities")
 
     # for now assume we want objects with noise
-    return build_shear_catalog_noise(procedure_config, next_step)
+    if begin_object == (Descriptor.none, "shear_cat"):
+        return build_shear_catalog_noise(procedure_config, next_step)
+    else:
+        return next_step
 
 def build_procedure(begin_object, procedure_config, save_config,
                     storage_collection):

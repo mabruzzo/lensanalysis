@@ -132,7 +132,7 @@ def _starting_procedure_step(cmd_args,name,analysis_storage,cosmo_storage_col):
         assert len(begin[0]) == 0
         loader = cosmo_storage_col.get_shear_cat_loader(name)
     else:
-        loader = get_analysis_col_value(analysis_storage, *begin)
+        loader = analysis_storage[begin]
         assert loader is not None
 
     first_step = LoadCollection(loader)
