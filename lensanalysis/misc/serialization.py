@@ -25,7 +25,7 @@ def write_peak_loc_npy(fname,peak_loc):
 def load_peak_loc_npy(fname):
     array = np.load(fname)
     heights = array[:,0]
-    locations = array[:,1:]
+    locations = array[:,1:] *u.degree
     return PeakLocations(heights = heights,locations = locations)
 
 def write_peak_count_npy(fname,peak_count):
@@ -259,7 +259,7 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
         out = []
         for i in range(self._num_elements):
             fname = self._format_fname(collection_id,i+1)
-            out.append(self.element_load(fname))
+            out.append(self.element_loader(fname))
         return out
 
     def delete(self,collection_id):

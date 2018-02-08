@@ -72,7 +72,7 @@ class BinPeaks(ConversionProcedureStep):
                                   "being processed").format(self.num_tomo_bins,
                                                             len(data_object)))
             for peak_loc, bin_edges in zip(data_object,self.bin_edges):
-                hist, bin_edges = peak_loc.histogram(self.bin_edges)
+                hist, bin_edges = peak_loc.histogram(bin_edges)
                 out.append(hist)
         else:
             if len(data_object)>1:

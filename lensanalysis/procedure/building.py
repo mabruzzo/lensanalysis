@@ -85,7 +85,7 @@ def build_peak_counting(begin, procedure_config, storage_collection,
             else:
                 objects_to_save.feature_products.peak_counts = False
 
-        if begin == (Descriptor.None,"peak_loc"):
+        if begin == (descriptor,"peak_loc"):
             return second_step
     else:
         second_step = None
@@ -117,7 +117,10 @@ def build_smooth_noisy_convergence(begin, procedure_config, storage_collection,
     else:
         ots_conv = objects_to_save.conv_map
         conv_map_storage = storage_collection.conv_map
-        
+    
+    if feature_step is None and not ots_conv.smoothed_noisy_map:
+        return None
+
     edge_angle = procedure_config.get_conv_map_edge_angle()
     npixel = procedure_config.get_conv_map_resolution()
     mask_conv_map = procedure_config.mask_convergence_conversion()
@@ -155,6 +158,9 @@ def build_shear_conversion(begin, procedure_config, storage_collection,
     else:
         ots_shear = objects_to_save.shear_map
         shear_map_storage = storage_collection.shear_map
+
+    if following_sequential_step is None and not ots_shear.noisy_map:
+        return None
 
     map_size = procedure_config.get_conv_map_edge_angle()
     npixel = procedure_config.get_conv_map_resolution()
@@ -221,6 +227,8 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                            objects_to_save,
                                            tomo = tomo,
                                            num_tomo_bins = num_tomo_bins)
+        if begin_object == (extra_descr,"peak_loc"):
+            return feature_step
     else:
         feature_step = None
 
@@ -242,7 +250,7 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                          following_sequential_step =recent_step,
                                          tomo = tomo)
 
-    if begin_object == (Descriptor.none,"shear_cat"):
+    if begin_object == (Descriptor.none,"shear_cat") or recent_step is None:
         return recent_step
     else:
         raise ValueError("Not applicable beginning step")

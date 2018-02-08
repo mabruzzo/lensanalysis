@@ -47,7 +47,7 @@ class PeakLocations(FeatureObject):
         return self._locations.copy()
 
     def histogram(self, bins = 10, range = None, normed = False,
-                  weigths = None, density = None):
+                  weights = None, density = None):
         """
         Comput the histogram of the peak heights.
 
@@ -60,9 +60,9 @@ class PeakLocations(FeatureObject):
 
         See numpy.histogram for documentation on the Parameters and Notes.
         """
-        hist, bin_edges = np.hist(self.heights, bins = bins, range = range,
-                                  normed = normed, weights = weights,
-                                  density = density)
+        hist, bin_edges = np.histogram(self.heights, bins = bins, 
+                                       range = range, normed = normed, 
+                                       weights = weights, density = density)
         return PeakCounts(hist),bin_edges
 
     def __repr__(self):

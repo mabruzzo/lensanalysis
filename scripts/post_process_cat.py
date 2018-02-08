@@ -124,9 +124,13 @@ def determine_saved_products(cmd_args, proc_config):
 def _starting_procedure_step(begin,name,analysis_storage,cosmo_storage_col):
     
     if begin[1] == 'shear_cat':
-        assert len(begin[0]) == 0
+        if isinstance(begin[1],tuple):
+            assert len(begin[0]) == 0
+        else:
+            assert begin[0] is Descriptor.none
         loader = cosmo_storage_col.get_shear_cat_loader(name)
     else:
+        print analysis_storage.feature_products.tomo_peak_locations
         loader = analysis_storage[begin]
         assert loader is not None
 
@@ -212,6 +216,7 @@ def _setup_mpi_helper(builder,comm,name,save_config=None,
         initial_save_val = True
     else:
         initial_save_val = save[begin]
+        save[begin] = True
 
     if name in cosmo_storage_col:
         analysis_storage = cosmo_storage_col.get_analysis_product_storage(name,
@@ -248,6 +253,7 @@ def _get_begin(cmd_args):
         begin = ((),"shear_cat")
     else:
         begin = parser.parse_name(cmd_args.begin)
+
     return begin
 
 def setup(cmd_args,comm):
@@ -291,7 +297,8 @@ def setup(cmd_args,comm):
 
     name = cmd_args.id[0]
     if nprocs == 1:
-        temp = _setup_mpi_helper(builder,comm,name,save_config, begin)
+        temp = _setup_mpi_helper(builder, comm, name, save_config, 
+                                 begin = begin)
         cosmo_storage_col,analysis_storage=temp
         _setup_subdir(analysis_storage,cmd_args,proc_config)
     else:
@@ -299,7 +306,8 @@ def setup(cmd_args,comm):
         # check an possible create the directories on rank 0.
         # The other tasks will wait around while this is going on
         if rank == 0:
-            temp = _setup_mpi_helper(builder,comm,name,save_config, begin)
+            temp = _setup_mpi_helper(builder, comm, name, save_config, 
+                                     begin = begin)
             cosmo_storage_col,analysis_storage = temp
             _setup_subdir(analysis_storage,cmd_args,proc_config)
         comm.Barrier()
@@ -308,7 +316,8 @@ def setup(cmd_args,comm):
         # move on since there is no possibility of an error occuring due to 
         # creating directories in the same place at the same time.
         if rank != 0:
-            temp = _setup_mpi_helper(builder,comm,name,save_config, begin)
+            temp = _setup_mpi_helper(builder,comm,name,save_config, 
+                                     begin = begin)
             cosmo_storage_col,analysis_storage = temp
             # we do NOT call _setup_subdir here. We already called that for the 
             # rank 0 process and it created all subdirectories need for
@@ -317,11 +326,11 @@ def setup(cmd_args,comm):
     # finally, we move to actually building our procedure.
     
     # we start with the features and work our way backwards
-    first_step = _starting_procedure_step(cmd_args, name, analysis_storage,
+    first_step = _starting_procedure_step(begin, name, analysis_storage,
                                           cosmo_storage_col)
 
     # build the remaining steps
-    remaining_steps = build_procedure(begin_object, proc_config,
+    remaining_steps = build_procedure(begin, proc_config,
                                       save_config, analysis_storage,
                                       cosmo_storage_col.get_num_tomo_bin())
     first_step.wrapped_step = remaining_steps
