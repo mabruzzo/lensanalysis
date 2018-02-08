@@ -278,6 +278,15 @@ class StorageConfig(object):
         self._config_parser = ConfigParser.SafeConfigParser()
         self._config_parser.read(config_file)
 
+    def num_tomo_bins(self):
+        """
+        Returns the number of tomographic bins. This is totally independent of 
+        whether or not any tomgraphic data will or can be saved.
+        """
+        num_bins = self._config_parser.getint("General", "num_tomo_bins")
+        assert num_bins >0
+        return num_bins
+
     def convergence_map_collection_storage(self,descriptors,root_dir):
         """
         Returns instance of ConvergenceStorage if specified in the storage 

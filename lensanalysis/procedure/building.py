@@ -47,7 +47,7 @@ def _wrap_save_step(decorator_step, save_step, following_sequential_step):
     return decorator_step
 
 def build_peak_counting(begin, procedure_config, storage_collection,
-                        objects_to_save, tomo = False):
+                        objects_to_save, tomo = False, num_tomo_bins = 0):
     fp_storage = storage_collection.feature_products
 
     if tomo:
@@ -67,13 +67,15 @@ def build_peak_counting(begin, procedure_config, storage_collection,
         raise ValueError("There is nothing to be done!")
     elif save_peak_counts:
         # get the peak count bins
-        peak_count_bins = procedure_config.peak_count_bins()
+        if tomo:
+            peak_count_bins = procedure_config.tomo_peak_count_bins(\
+                                                                num_tomo_bins)
+        else:
+            peak_count_bins = procedure_config.peak_count_bins()
+
         # build the binning step
         second_step = BinPeaks(peak_count_bins)
 
-        if tomo:
-            raise NotImplementedError("Currently don't have ability to use "
-                                      "tomographic histogram")
         # we can only want to save this
         if save_peak_counts:
             temp = SaveCollectionEntries(peak_count_storage)
@@ -192,7 +194,7 @@ def build_shear_catalog_noise(procedure_config,following_sequential_step):
 
 def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                     storage_collection, objects_to_save,
-                                    tomo =False):
+                                    num_tomo_bins =-1):
     """
     Tries to build the procedure which can go as far back as converting the 
     shear catalog into the shear map.
@@ -200,6 +202,12 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
     This function assumes that if the shear catalog is used noise has already 
     been added.
     """
+
+    if num_tomo_bins == -1:
+        tomo = False
+    else:
+        assert num_tomo_bins>=0
+        tomo = True
 
     if tomo:
         extra_descr = Descriptor.tomo
@@ -211,7 +219,8 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
         feature_step = build_peak_counting(begin_object, procedure_config,
                                            storage_collection,
                                            objects_to_save,
-                                           tomo = tomo)
+                                           tomo = tomo,
+                                           num_tomo_bins = num_tomo_bins)
     else:
         feature_step = None
 
@@ -239,20 +248,21 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
         raise ValueError("Not applicable beginning step")
 
 def _build_procedure_helper(begin_object, procedure_config,
-                            storage_collection, objects_to_save):
+                            storage_collection, objects_to_save,
+                            num_tomo_bins):
     # first we will try to build the non-tomographic steps
     non_tomo_proc = _build_procedure_from_shear_cat(begin_object,
                                                     procedure_config,
                                                     storage_collection,
                                                     objects_to_save,
-                                                    tomo =False)
-
+                                                    num_tomo_bins =-1)
+        
     # next we will try to build the tomographic steps
     tomo_proc = _build_procedure_from_shear_cat(begin_object,
                                                 procedure_config,
                                                 storage_collection,
                                                 objects_to_save,
-                                                tomo =True)
+                                                num_tomo_bins = num_tomo_bins)
 
     if tomo_proc is not None:
         # need to wrap the steps for rebinning if necessary
@@ -279,13 +289,14 @@ def _build_procedure_helper(begin_object, procedure_config,
         return next_step
 
 def build_procedure(begin_object, procedure_config, save_config,
-                    storage_collection):
+                    storage_collection, num_tomo_bins):
 
     begin_object = (_convert_descriptor(begin_object[0]), begin_object[1])
 
     objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config,
-                                   storage_collection, objects_to_save)
+                                   storage_collection, objects_to_save,
+                                   num_tomo_bins)
 
     
     remaining = filter(lambda key : objects_to_save[key],

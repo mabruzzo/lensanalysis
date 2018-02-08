@@ -303,7 +303,8 @@ def setup(cmd_args,comm):
 
     # build the remaining steps
     remaining_steps = build_procedure(begin_object, proc_config,
-                                      save_config, analysis_storage)
+                                      save_config, analysis_storage,
+                                      cosmo_storage_col.get_num_tomo_bin())
     first_step.wrapped_step = remaining_steps
 
     procedure = SimpleProcedure()

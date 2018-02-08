@@ -268,6 +268,14 @@ class CosmologyAnalysisCollection(object):
         self._shear_cat_config = shear_cat_config
         self._cache = cache
 
+    def get_num_tomo_bin(self):
+        """
+        Get the number of tomographic bins.
+        This number is independent of whether or not any tomgraphic data will 
+        or can be saved.
+        """
+        return self._storage_config.num_tomo_bins()
+
     def list_analysis_product_names(self):
         temp = os.listdir(self_root_path)
         return [path for path in temp if os.path.isdir(path)]

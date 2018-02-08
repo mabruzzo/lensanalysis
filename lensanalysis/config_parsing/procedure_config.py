@@ -5,6 +5,17 @@ from astropy import units as u
 
 from lensanalysis.misc.name_parser import SafeNameParser
 
+def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
+    if bin_min>=bin_max:
+        raise ValueError("bin_min must be less than bin_max")
+    if bin_count <= 0:
+        raise ValueError("bin_count must be at least one")
+    elif bin_count == 1:
+        return np.array([bin_min,bin_max]) * sigma
+
+    return np.linspace(bin_min, bin_max, num = bin_count + 1,
+                       endpoint = True) * sigma
+
 class ProcedureConfig(object):
     def __init__(self,procedure_config):
         self._config = procedure_config
@@ -12,7 +23,7 @@ class ProcedureConfig(object):
     def has_peak_count_bins(self):
         return self._config.has_section("PeakCountBins")
 
-    def peak_count_bins(self):
+    def peak_count_bins(self, num_bins):
         if (self._config.has_option("PeakCountBins","bin_fname")
             and self._config.has_option("PeakCountBins","bin_min")):
             raise ValueError("Procedure config cannot have options for both "
@@ -20,19 +31,49 @@ class ProcedureConfig(object):
         elif self._config.has_option("PeakCountBins","bin_fname"):
             raise NotImplementedError("Not yet implemented")
         else:
+            if self._config.has_option("PeakCountBins","normal_sigma"):
+                normal_sigma = self._config.getfloat("PeakCountBins",
+                                                     "normal_sigma")
+                if normal_sigma == 0:
+                    normal_sigma = 1.
+                assert normal_sigma>0
+            else:
+                normal_sigma = 1.
+
             bin_min = self._config.getfloat("PeakCountBins","bin_min")
             bin_max = self._config.getfloat("PeakCountBins","bin_max")
             bin_count = self._config.getint("PeakCountBins","bin_count")
-            if bin_min>=bin_max:
-                raise ValueError("bin_min must be less than bin_max")
+            return _build_peak_count_bins(bin_min, bin_max, bin_count,
+                                          normal_sigma)
 
-            if bin_count <= 0:
-                raise ValueError("bin_count must be at least one")
-            elif bin_count == 1:
-                return np.array([bin_min,bin_max])
+    def tomo_peak_count_bins(self,num_bins):
+        assert num_bins>0
+        const_bins = self._config.getboolean("PeakCountBins","tomo_const_bins")
+        if not const_bins:
+            raise NotImplementedError("Not currently equipped to handle unique "
+                                      "peak count bins for different \n"
+                                      "tomographic bins.")
+        if self._config.has_option("PeakCountBins","tomo_sigma"):
+            # if we wish to allow different tomographic sigmas, then we will do
+            # accomplish this by specifying multiple sigma values deliminated
+            # by commas
+            tomo_sigma = self._config.getfloat("PeakCountBins",
+                                                 "tomo_sigma")
+            if tomo_sigma == 0:
+                tomo_sigma = 1.
+            assert tomo_sigma>0
+        else:
+            tomo_sigma = 1.
+                
+        bin_min = self._config.getfloat("PeakCountBins","tomo_bin_min")
+        bin_max = self._config.getfloat("PeakCountBins","tomo_bin_max")
+        bin_count = self._config.getint("PeakCountBins","tomo_bin_count")
 
-            return np.linspace(bin_min, bin_max, num = bin_count + 1,
-                               endpoint = True)
+        out = []
+        for elem in range(num_bins):
+            out.append(_build_peak_count_bins(bin_min, bin_max, bin_count,
+                                              tomo_sigma))
+        return out
 
     def get_noise_seed(self):
         return self._config.getint("AnalysisOptions", "noise_seed")
