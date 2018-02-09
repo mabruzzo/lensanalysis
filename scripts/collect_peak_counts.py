@@ -30,21 +30,28 @@ parser.add_argument("-c", "--config", dest = "config", required = True,
                             "all files are (or should be) saved."))
 
 parser.add_argument("--min",dest = "min_realization", action = "store",
-                    type = int, required = True
+                    type = int, required = True,
                     help = ("Specify the minimum realization to process."
                             "Default is the maximum allowed realization to "
                             "be processed."))
 
 parser.add_argument("--max",dest = "max_realization", action = "store",
-                    type =int, required = True
+                    type =int, required = True,
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
                             "realization to be processed."))
 
 parser.add_argument("--template", dest = "template", action = "store",
-                    default = None, required = True
+                    default = None, required = True,
                     help = ("The template with which the output file(s) should "
                             "be saved."))
+
+parser.add_argument("--tomo", dest = "tomo", action = "store_true",
+                    defalut = False,
+                    help = ("Indicates if the peak counts are tomographic."))
+parser.add_argument("--average", dest = "average", action = "store_true",
+                    defalut = False,
+                    help = ("Indicates if the peak counts should be averaged."))
 
 def check_num_fields(template):
     iterable = Formatter().parse(template)
@@ -85,16 +92,16 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
         out = []
         for collection in temp:
             if average:
-                out.append(np.mean(np.stack(temp),axis = -1))
-                raise RuntimeError("make sure this works right")
+                out.append(np.mean(np.stack(temp),axis = 0))
             else:
                 out.append(np.stack(temp))
         result = np.stack(out)
     else:
-        raise RuntimeError()
+        if average:
+            result = np.average(np.stack(temp),axis=0)
+        else:
+            result = np.stack(temp)
     np.save(fname,result)
-    raise RuntimeError("FINALLY WE NEED TO SAVE THE FILE.")
-
 
 if __name__ == '__main__':
     cmd_args = parser.parse_args()
@@ -112,13 +119,6 @@ if __name__ == '__main__':
 
     builder = CosmoCollectionConfigBuilder.from_config_file(cmd_args.config)
 
-    tomo = True
-    load_config = default_value_UAPC(False)
-    if tomo:
-        load_config.feature_products.tomo_peak_counts = True
-    else:
-        load_config.feature_products.peak_counts = True
-
     if cmd_args.fiducial:
         cosmo_storage_col = builder.get_fiducial_storage_collection()
     else:
@@ -126,6 +126,15 @@ if __name__ == '__main__':
 
     if num_names == 0:
         names = cosmo_storage_col.list_analysis_product_names()
+    
+    tomo = cmd_args.tomo
+    load_config = default_value_UAPC(False)
+    if tomo:
+        load_config.feature_products.tomo_peak_counts = True
+        num_tomo_bins = cosmo_storage_col.get_num_tomo_bin()
+    else:
+        load_config.feature_products.peak_counts = True
+        num_tomo_bins = 0
 
     for name in names:
         if check_num_fields(template) == 0:
@@ -140,4 +149,5 @@ if __name__ == '__main__':
         else:
             loader = storage.feature_products.peak_counts
 
-        pass
+        collector(fname, storage, start, stop, cmd_args.average, tomo = tomo,
+                  num_tomo_bins = num_tomo_bins)
