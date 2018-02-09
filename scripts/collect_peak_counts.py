@@ -15,7 +15,8 @@ This script is designed to collect all of the computed peak counts.
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--name", nargs='?', default = [],
+parser.add_argument("--name",dest = "names", nargs='?', default = [],
+                    action = 'append',
                     help = ("The name of cosmology to post-process. If this is "
                             "none, then it processes all cosmologies"))
 
@@ -47,10 +48,10 @@ parser.add_argument("--template", dest = "template", action = "store",
                             "be saved."))
 
 parser.add_argument("--tomo", dest = "tomo", action = "store_true",
-                    defalut = False,
+                    default = False,
                     help = ("Indicates if the peak counts are tomographic."))
 parser.add_argument("--average", dest = "average", action = "store_true",
-                    defalut = False,
+                    default = False,
                     help = ("Indicates if the peak counts should be averaged."))
 
 def check_num_fields(template):
@@ -83,8 +84,9 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
         peak_count_col = loader.load(i)
 
         if tomo:
-            for peak_counts, tomo_cont in zip(peak_count_cot,temp):
-                tomo_cont.append(peak_counts._counts)
+            for j,peak_counts in enumerate(peak_count_col):
+                # check to make sure we get the right shape
+                temp[j].append(peak_counts._counts)
         else:
             temp.append(peak_count_col[0]._counts)
 
@@ -92,29 +94,27 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
         out = []
         for collection in temp:
             if average:
-                out.append(np.mean(np.stack(temp),axis = 0))
+                out.append(np.mean(np.stack(collection),axis = 0))
             else:
-                out.append(np.stack(temp))
+                out.append(np.stack(collection))
         result = np.stack(out)
     else:
         if average:
             result = np.average(np.stack(temp),axis=0)
         else:
             result = np.stack(temp)
+    print result.shape
     np.save(fname,result)
 
 if __name__ == '__main__':
     cmd_args = parser.parse_args()
-    if cmd_args.names is None:
-        num_names = 0
-    else:
-        num_names = len(cmd_args.names)
-        names = cmd_args.names
-    fname_template = cmd_args.template
-    check_template(fname_template,num_names)
+    print cmd_args.names
+    num_names = len(cmd_args.names)
+    names = cmd_args.names
+    
     assert 1<=cmd_args.min_realization <=cmd_args.max_realization
     start = cmd_args.min_realization
-    stop = cmd_arg.max_realization +1
+    stop = cmd_args.max_realization +1
     fid = cmd_args.fiducial
 
     builder = CosmoCollectionConfigBuilder.from_config_file(cmd_args.config)
@@ -126,7 +126,9 @@ if __name__ == '__main__':
 
     if num_names == 0:
         names = cosmo_storage_col.list_analysis_product_names()
-    
+        num_names = len(names)
+    fname_template = cmd_args.template
+    check_template(fname_template,num_names)
     tomo = cmd_args.tomo
     load_config = default_value_UAPC(False)
     if tomo:
@@ -137,10 +139,11 @@ if __name__ == '__main__':
         num_tomo_bins = 0
 
     for name in names:
-        if check_num_fields(template) == 0:
-            fname = template
+        print name
+        if check_num_fields(fname_template) == 0:
+            fname = fname_template
         else:
-            fname = template.format(name)
+            fname = fname_template.format(name)
 
         storage = cosmo_storage_col.get_analysis_product_storage(name,
                                                                  load_config)
@@ -149,5 +152,5 @@ if __name__ == '__main__':
         else:
             loader = storage.feature_products.peak_counts
 
-        collector(fname, storage, start, stop, cmd_args.average, tomo = tomo,
+        collector(fname, loader, start, stop, cmd_args.average, tomo = tomo,
                   num_tomo_bins = num_tomo_bins)
