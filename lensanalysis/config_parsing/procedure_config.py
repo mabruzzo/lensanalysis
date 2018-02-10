@@ -5,6 +5,19 @@ from astropy import units as u
 
 from lensanalysis.misc.name_parser import SafeNameParser
 
+
+def _get_uniform_type_list(self, section,option,converter):
+    temp = self.get(section,option)
+    return [converter(elem) for elem in temp.split(',')]
+
+class SequentialArgConfigParser(ConfigParser.SafeConfigParser):
+
+    def getint_list(self,section,option):
+        return _get_uniform_type_list(self, section,option,int)
+
+    def getfloat_list(self,section,option):
+        return _get_uniform_type_list(self, section,option,float)
+
 def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
     if bin_min>=bin_max:
         raise ValueError("bin_min must be less than bin_max")
@@ -18,6 +31,7 @@ def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
 
 class ProcedureConfig(object):
     def __init__(self,procedure_config):
+        assert isinstance(self._config,SequentialArgConfigParser)
         self._config = procedure_config
 
     def has_peak_count_bins(self):
@@ -47,7 +61,7 @@ class ProcedureConfig(object):
                                           normal_sigma)
 
     def tomo_peak_count_bins(self,num_bins):
-        assert num_bins>0
+        assert isinstance(num_bins, int) and num_bins>0
         const_bins = self._config.getboolean("PeakCountBins","tomo_const_bins")
         if not const_bins:
             raise NotImplementedError("Not currently equipped to handle unique "
@@ -57,22 +71,38 @@ class ProcedureConfig(object):
             # if we wish to allow different tomographic sigmas, then we will do
             # accomplish this by specifying multiple sigma values deliminated
             # by commas
-            tomo_sigma = self._config.getfloat("PeakCountBins",
-                                                 "tomo_sigma")
-            if tomo_sigma == 0:
-                tomo_sigma = 1.
-            assert tomo_sigma>0
+            tomo_sigma = self._config.getfloat_list("PeakCountBins",
+                                                    "tomo_sigma")
+            if len(tomo_sigma) not in [1,num_bins]:
+                if num_bins == 1:
+                    message = ("If specified, tomo_sigma must have 1 value to "
+                               "be used with the 1 tomographic bin.")
+                else:
+                    message = ("If specified tomo_sigma must either have 1 "
+                               "value to be used with all {:d}\ntomographic "
+                               "bins or {:d} different "
+                               "values.").format(num_bins,num_bins)
+                raise ValueError(message)
+
+            for i in range(len(tomo_sigma)):
+                if tomo_sigma[i] == 0:
+                    tomo_sigma[i] = 1.
+                assert tomo_sigma[i]>0
+
+            if len(tomo_sigma) == 1:
+                temp = tomo_sigma
+                tomo_sigma = [temp[0] for i in range(num_bins)]
         else:
-            tomo_sigma = 1.
-                
+            tomo_sigma = [1. for i in range(num_bins)]
+
         bin_min = self._config.getfloat("PeakCountBins","tomo_bin_min")
         bin_max = self._config.getfloat("PeakCountBins","tomo_bin_max")
         bin_count = self._config.getint("PeakCountBins","tomo_bin_count")
 
         out = []
-        for elem in range(num_bins):
+        for sigma_val in tomo_sigma:
             out.append(_build_peak_count_bins(bin_min, bin_max, bin_count,
-                                              tomo_sigma))
+                                              sigma_val))
         return out
 
     def get_noise_seed(self):
@@ -150,6 +180,6 @@ class ProcedureConfig(object):
 
     @classmethod
     def from_fname(cls,fname):
-        config_parser = ConfigParser.SafeConfigParser()
+        config_parser = SequentialArgConfigParser()
         config_parser.read(fname)
         return cls(config_parser)
