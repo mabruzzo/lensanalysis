@@ -1,6 +1,7 @@
 import argparse
 import os.path
 from string import Formatter
+import sys
 
 import numpy as np
 
@@ -107,6 +108,7 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
     np.save(fname,result)
 
 if __name__ == '__main__':
+    print sys.argv
     cmd_args = parser.parse_args()
     print cmd_args.names
     num_names = len(cmd_args.names)

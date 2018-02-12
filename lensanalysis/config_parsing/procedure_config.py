@@ -31,7 +31,7 @@ def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
 
 class ProcedureConfig(object):
     def __init__(self,procedure_config):
-        assert isinstance(self._config,SequentialArgConfigParser)
+        assert isinstance(procedure_config,SequentialArgConfigParser)
         self._config = procedure_config
 
     def has_peak_count_bins(self):
