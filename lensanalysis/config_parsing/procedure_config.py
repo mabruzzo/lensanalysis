@@ -29,6 +29,21 @@ def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
     return np.linspace(bin_min, bin_max, num = bin_count + 1,
                        endpoint = True) * sigma
 
+def _load_indiv_bin_vals(config, section, option, num_bins, val_type = int):
+    """
+    helper function to load individual values for each tomographic bin.
+    """
+    if val_type == int:
+        vals = config.getint_list(section,option)
+    elif val_type == float:
+        vals = config.getfloat_list(section,option)
+    else:
+        raise ValueError('val_type can only be "int" or "float".')
+    if len(vals) != num_bins:
+        raise ValueError(("{:d} values must be specified for the {:s} "
+                          "option.").format(num_bins,option))
+    return vals
+
 class ProcedureConfig(object):
     def __init__(self,procedure_config):
         assert isinstance(procedure_config,SequentialArgConfigParser)
@@ -62,11 +77,7 @@ class ProcedureConfig(object):
 
     def tomo_peak_count_bins(self,num_bins):
         assert isinstance(num_bins, int) and num_bins>0
-        const_bins = self._config.getboolean("PeakCountBins","tomo_const_bins")
-        if not const_bins:
-            raise NotImplementedError("Not currently equipped to handle unique "
-                                      "peak count bins for different \n"
-                                      "tomographic bins.")
+
         if self._config.has_option("PeakCountBins","tomo_sigma"):
             # if we wish to allow different tomographic sigmas, then we will do
             # accomplish this by specifying multiple sigma values deliminated
@@ -95,12 +106,32 @@ class ProcedureConfig(object):
         else:
             tomo_sigma = [1. for i in range(num_bins)]
 
-        bin_min = self._config.getfloat("PeakCountBins","tomo_bin_min")
-        bin_max = self._config.getfloat("PeakCountBins","tomo_bin_max")
-        bin_count = self._config.getint("PeakCountBins","tomo_bin_count")
+        const_bins = self._config.getboolean("PeakCountBins","tomo_const_bins")
+        if const_bins:
+            bin_max_l = []
+            bin_min_l = []
+            bin_count_l = []
+            for i in range(num_bins):
+                bin_min_l.append(self._config.getfloat("PeakCountBins",
+                                                       "tomo_bin_min"))
+                bin_max_l.append(self._config.getfloat("PeakCountBins",
+                                                       "tomo_bin_max"))
+                bin_count_l.append(self._config.getint("PeakCountBins",
+                                                       "tomo_bin_count"))
+        else:
+            bin_min_l =_load_indiv_bin_vals(self._config, "PeakCountBins",
+                                            "tomo_bin_min", num_bins,
+                                            val_type = float)
+            bin_max_l =_load_indiv_bin_vals(self._config, "PeakCountBins",
+                                            "tomo_bin_max", num_bins,
+                                            val_type = float)
+            bin_count_l =_load_indiv_bin_vals(self._config, "PeakCountBins",
+                                              "tomo_bin_min", num_bins,
+                                              val_type = int)
 
         out = []
-        for sigma_val in tomo_sigma:
+        iter_tuple = zip(bin_min_l, bin_max_l, bin_count_l, tomo_sigma)
+        for bin_min, bin_max, bin_count, sigma_val in iter_tuple:
             out.append(_build_peak_count_bins(bin_min, bin_max, bin_count,
                                               sigma_val))
         return out
