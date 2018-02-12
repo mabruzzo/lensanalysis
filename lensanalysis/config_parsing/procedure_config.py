@@ -126,7 +126,7 @@ class ProcedureConfig(object):
                                             "tomo_bin_max", num_bins,
                                             val_type = float)
             bin_count_l =_load_indiv_bin_vals(self._config, "PeakCountBins",
-                                              "tomo_bin_min", num_bins,
+                                              "tomo_bin_count", num_bins,
                                               val_type = int)
 
         out = []
