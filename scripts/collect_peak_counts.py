@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import os.path
 from string import Formatter
 import sys
@@ -16,8 +17,8 @@ This script is designed to collect all of the computed peak counts.
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--name",dest = "names", nargs='?', default = [],
-                    action = 'append',
+parser.add_argument("--name",dest = "names", nargs='+', default = [],
+                    action = 'store',
                     help = ("The name of cosmology to post-process. If this is "
                             "none, then it processes all cosmologies"))
 
@@ -54,6 +55,12 @@ parser.add_argument("--tomo", dest = "tomo", action = "store_true",
 parser.add_argument("--average", dest = "average", action = "store_true",
                     default = False,
                     help = ("Indicates if the peak counts should be averaged."))
+parser.add_argument("--mp_collections", dest = "mp_collections", 
+                    action = "store", default = None, type = int,
+                    help = ("Indicates if we should use multiprocessing for "
+                            "collecting different peak_count collections.\n"
+                            "This expects an integer number of processes "
+                            "greater than 1."))
 
 def check_num_fields(template):
     iterable = Formatter().parse(template)
@@ -107,6 +114,40 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
     print result.shape
     np.save(fname,result)
 
+def process_name(name, fname_template, cosmo_storage_col, load_config, start,
+                 stop, tomo, cmd_args, num_tomo_bins):
+    if check_num_fields(fname_template) == 0:
+        fname = fname_template
+    else:
+        fname = fname_template.format(name)
+
+    storage = cosmo_storage_col.get_analysis_product_storage(name,
+                                                             load_config)
+    if tomo:
+        loader = storage.feature_products.tomo_peak_counts
+    else:
+        loader = storage.feature_products.peak_counts
+
+    collector(fname, loader, start, stop, cmd_args.average, tomo = tomo,
+              num_tomo_bins = num_tomo_bins)
+
+class ProcessNameWrapper(object):
+    def __init__(self, fname_template, cosmo_storage_col, load_config, start,
+                 stop, tomo, cmd_args, num_tomo_bins):
+        self.fname_template = fname_template 
+        self.cosmo_storage_col = cosmo_storage_col
+        self.load_config = load_config 
+        self.start = start
+        self.stop = stop
+        self.tomo = tomo
+        self.cmd_args = cmd_args
+        self.num_tomo_bins = num_tomo_bins
+
+    def __call__(self,name):
+        process_name(name, self.fname_template, self.cosmo_storage_col, 
+                     self.load_config, self.start, self.stop, self.tomo, 
+                     self.cmd_args, self.num_tomo_bins)
+
 if __name__ == '__main__':
     print sys.argv
     cmd_args = parser.parse_args()
@@ -129,6 +170,7 @@ if __name__ == '__main__':
     if num_names == 0:
         names = cosmo_storage_col.list_analysis_product_names()
         num_names = len(names)
+        assert num_names >0
     fname_template = cmd_args.template
     check_template(fname_template,num_names)
     tomo = cmd_args.tomo
@@ -140,19 +182,22 @@ if __name__ == '__main__':
         load_config.feature_products.peak_counts = True
         num_tomo_bins = 0
 
-    for name in names:
-        print name
-        if check_num_fields(fname_template) == 0:
-            fname = fname_template
-        else:
-            fname = fname_template.format(name)
+    if cmd_args.mp_collections is None:
+        num_procs = 1
+    else:
+        num_procs = cmd_args.mp_collections
+        assert num_procs >=1 and isinstance(num_procs,int)
 
-        storage = cosmo_storage_col.get_analysis_product_storage(name,
-                                                                 load_config)
-        if tomo:
-            loader = storage.feature_products.tomo_peak_counts
+    f = ProcessNameWrapper(fname_template, cosmo_storage_col, load_config,
+                           start, stop, tomo, cmd_args, num_tomo_bins)
+    if num_procs == 1 or len(names) == 1:
+        map(f,names)
+    else:
+        
+        if len(names) <= num_procs:
+            chunk_size=1
+            p = multiprocessing.Pool(len(names))
         else:
-            loader = storage.feature_products.peak_counts
-
-        collector(fname, loader, start, stop, cmd_args.average, tomo = tomo,
-                  num_tomo_bins = num_tomo_bins)
+            chunk_size = num_procs//num_procs
+            p = multiprocessing.Pool(num_procs)
+        p.map(f,names,chunk_size)
