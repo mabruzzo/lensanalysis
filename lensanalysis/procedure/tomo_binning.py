@@ -138,8 +138,18 @@ class PhotozNoiseAddition(object):
     This object is responsible for simulating photometric Errors.
     """
 
+    def __call__(self,zspec,map_id,bin_num):
+        raise NotImplementedError()
+
 class ConstantBias(PhotozNoiseAddition):
-    pass
+    def __init__(self,bias):
+        if bias < 0:
+            raise RuntimeError("Need to come up with rules for shifts that "
+                               "give negative photoz")
+        self.bias = bias
+
+    def __call__(self,zspec,map_id,bin_num):
+        return self.bias*(1.+zspec)
 
 
 class PseudoPhotozRebin(DynamicRebinner):
@@ -150,17 +160,58 @@ class PseudoPhotozRebin(DynamicRebinner):
     This method was employed for the LSST Tomography paper.
 
     For now this just uses a constant bias.
+
+    Parameters
+    ----------
+    noise_function : PhotozNoiseAddition
+        This gets called to add noise.
+    bin_intervals : list of tuples, optional
+        List of tuples of new intervals to rebin the catalogs to. If not 
+        specified, then we will automatically use the same redshift intervals
+        as were used in the input catalog.
+    min_bin_zero : bool, optional
+        If bin_intervals was not specified. This asks if the lowest bin 
+        interval should end at z = 0 because this may not be the case. If False,
+        any galaxy with photoz between z=0 and the lowest bin are discarded. 
+        Default is False.
+    update_in_place : bool, optional
+        Whether or not the Shear Catalogs should have their redshifts updated 
+        in place. Presently, this is required. The actual binning of the 
+        different galaxies is unaffected.
+    save_file :
+        This is a placeholder - I'm not sure we will actually do anything with 
+        it.
     """
 
-    def __init__(self, bias_func, scatter_func = None, start_seed = None,
-                 update_in_place = True, save_file=None):
-        pass
+    def __init__(self, noise_function,
+                 bin_intervals=None,
+                 min_bin_zero = False,
+                 update_in_place = True,
+                 save_file=None):
+        self.noise_function = noise_function
+        self.bin_intervals = bin_interval
+        self.min_bin_zero = min_bin_zero
+        assert update_in_place
+        self.update_in_place = update_in_place
+        assert save_file is None
+        self.save_file = save_file
 
     def _determine_bins(self,data_object,map_id):
-        """
-        Computes
-        """
-        pass
+        func = self.noise_function
+
+        if self.bin_interval is None:
+            bin_interval = []
+            # need to check whether intervals are inclusive or exclusive
+            for i,catalog in enumerate(data_object):
+                pass
+
+        for i,catalog in enumerate(data_object):
+            photoz = func(catalog["z"],map_id,bin_num)
+            if in_place:
+                catalog["z"] = photoz
+            else:
+                raise NotImplementedError()
+        return data_object
 
 
 class ShearCatRebinning(IntermediateProcedureStep):
