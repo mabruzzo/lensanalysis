@@ -4,6 +4,7 @@ import os
 import os.path
 
 from .storage_config import StorageConfig, ShearCatCollectionLoaderConfig
+from .photoz_config import PseudoPhotozConfig
 
 from ..misc.analysis_collection import UniformAnalysisProductCollection
 from ..misc.enum_definitions import Descriptor
@@ -339,12 +340,13 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
     """
 
     def __init__(self,cosmo_name, root, storage_config, root_shear,
-                 shear_cat_config, cache = None):
+                 shear_cat_config, ppz_config, cache = None):
         super(FiducialStorageCollection,self).__init__(root, storage_config,
                                                          root_shear,
                                                          shear_cat_config,
                                                          cache = cache)
         self._cosmo_name = cosmo_name
+        self.ppz_config = ppz_config
 
     def get_cosmo_name(self):
         return self._cosmo_name
@@ -371,30 +373,29 @@ def _get_abs_paths(config,section_option_l,config_file_path):
         os.chdir(starting_dir)
     return out
 
-def _get_paths_cosmo_config_paths(config, config_file_path):
-    section_option_l = [("SamplingCosmology","root_dir"),
-                        ("SamplingCosmology","storage_config"),
-                        ("SamplingCosmology","shear_cat_root_dir"),
-                        ("SamplingCosmology","shear_cat_config"),
-                        ("FiducialCosmology","root_dir"),
-                        ("FiducialCosmology","storage_config"),
-                        ("FiducialCosmology","shear_cat_root_dir"),
-                        ("FiducialCosmology","shear_cat_config")]
+def _get_cosmo_config_paths(config, config_file_path, section_option_l):
     paths = _get_abs_paths(config,section_option_l,config_file_path)
     sections,options = zip(*section_option_l)
     dict_entries = zip(options,paths)
+    return dict(dict_entries)
 
-    sampling_dict = dict(dict_entries[:4])
-    fiducial_dict = dict(dict_entries[4:])
-    return sampling_dict,fiducial_dict
+def _get_sampled_cosmo_config_paths(config, config_file_path):
+    section_option_l = [("SamplingCosmology","root_dir"),
+                        ("SamplingCosmology","storage_config"),
+                        ("SamplingCosmology","shear_cat_root_dir"),
+                        ("SamplingCosmology","shear_cat_config")]
+    return _get_cosmo_config_paths(config, config_file_path, section_option_l)
+
+def _get_fid_cosmo_config_paths(config,config_file_path):
+    section_option_l = [("FiducialCosmology","root_dir"),
+                        ("FiducialCosmology","storage_config"),
+                        ("FiducialCosmology","shear_cat_root_dir"),
+                        ("FiducialCosmology","shear_cat_config"),
+                        ("FiducialCosmology","photoz_config")]
+    return _get_cosmo_config_paths(config, config_file_path, section_option_l)
 
 def _setup_config_parser(config_data):
-    #storage_config = ConfigParser.SafeConfigParser()
-    #storage_config.read(config_data["storage_config"])
     storage_config = StorageConfig(config_data["storage_config"])
-
-    #shear_cat_config = ConfigParser.SafeConfigParser()
-    #shear_cat_config.read(config_data["shear_cat_config"])
     shear_cat_config = ShearCatCollectionLoaderConfig(config_data["shear_cat_config"])
     return storage_config,shear_cat_config
 
@@ -408,33 +409,45 @@ class CosmoCollectionConfigBuilder(object):
     def from_config_file(cls,fname):
         config = ConfigParser.SafeConfigParser()
         config.read(fname)
-        sampling_dict, fiducial_dict = _get_paths_cosmo_config_paths(config,
-                                                                     fname)
 
-        # finally let's add the fiducial name to the fiducial dict
-        fiducial_dict['fiducial_name'] = config.get("FiducialCosmology",
-                                                    "fiducial_name")
+        sampling_dict = fiducial_dict = None
+        if config.has_section("SamplingCosmology"):
+            sampling_dict = _get_sampled_cosmo_config_paths(config, fname)
+        if config.has_section("FiducialCosmology"):
+            fiducial_dict = _get_fid_cosmo_config_paths(config,fname)
+            # finally let's add the fiducial name to the fiducial dict
+            fiducial_dict['fiducial_name'] = config.get("FiducialCosmology",
+                                                        "fiducial_name")
         return cls(sampling_dict,fiducial_dict)
 
 
     def get_fiducial_storage_collection(self,include_cache = False,
                                         cache_limit=None,
                                         save_config = None):
+        if self._fiducial_cosmology_config is None:
+            raise ValueError("no fiducial cosmology section was specified.")
         config_data = self._fiducial_cosmology_config
         storage_config, shear_cat_config = _setup_config_parser(config_data)
         cache = None
         if include_cache:
             raise RuntimeError()
 
+        temp = ConfigParser.SafeConfigParser()
+        temp.read(self._fiducial_cosmology_config["photoz_config"])
+        ppz_config = PseudoPhotozConfig(temp)
+        
         return FiducialStorageCollection(config_data["fiducial_name"],
                                          config_data['root_dir'],
                                          storage_config,
                                          config_data["shear_cat_root_dir"],
                                          shear_cat_config,
+                                         ppz_config,
                                          cache)
 
     def get_sampled_storage_collection(self,include_cache = False,
                                        cache_limit = None):
+        if self._sampled_cosmology_config is None:
+            raise ValueError("no sampled cosmology section was specified.")
         config_data = self._sampled_cosmology_config
         storage_config, shear_cat_config = _setup_config_parser(config_data)
 

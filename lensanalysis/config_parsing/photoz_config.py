@@ -125,7 +125,7 @@ _photo_z_options = [("bias_factor","bias_factor_{:d}",float),
                     ("stochastic_seed","stochastic_seed_{:d}",float),
                     ("constant_seed","constant_seed_{:d}",float)]
 
-class PhotoZConfig(object):
+class PhotozConfig(object):
     def __init__(self,config):
         self._config=config
         self._section_reader = VariableSectionReader(config,"PhotozDataset",
@@ -140,7 +140,7 @@ class PhotoZConfig(object):
     def get_photoz_noise_addition(self,identifier):
         raise NotImplementedError()
 
-class PseudoPhotoZConfig(PhotoZConfig):
+class PseudoPhotozConfig(PhotozConfig):
     def has_identifier(self,identifier):
         # remove the "_ppz" suffix
         return identifier[:-4] in self._section_reader.get_identifiers()
