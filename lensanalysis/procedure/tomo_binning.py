@@ -1,9 +1,50 @@
+#from __future__ import divison
+from operator import add
+
 import numpy as np
 import astropy.table as tbl
 
-from .procedure import IntermediateProcedureStep
-from ..misc.log import logprocedure
+from lenstools.utils.algorithms import step
 
+#from .procedure import IntermediateProcedureStep
+from lensanalysis.procedure.procedure import IntermediateProcedureStep
+#from ..misc.log import logprocedure
+
+
+def _modified_step(x,intervals,vals):
+    """
+    Modified version of the step function defines in LensTools.
+
+    The step function in LensTools inconsistently treats values that fall on 
+    the edges of the specified intervals. In this function, we assume that the 
+    intervals are monotonic. An interval is defined as a tuple: (lower,upper). 
+    The range of values included in an interval are defined as [lower,upper).
+    """
+
+    # first has been defined to map np.sign(x-bound)[np.sign(x-bound)==0]=1
+    # second has been defined to map np.sign(x-bound)[np.sign(bound-x)==0]=-1
+    # we can probably come up with a more clever way to do this.
+    first = lambda x,bound : np.where(np.sign(x-bound)>=0,1,-1)
+    second = lambda x,bound : np.where(np.sign(bound-x)>0,1,-1)
+    return reduce(add,(0.5*vals[n]*(first(x,i[0])+second(x,i[1]))
+                       for n,i in enumerate(intervals)))
+
+def _modified_rebin(catalog,intervals,field="z"):
+    """
+    This is just a modified version of the bound rebin method of 
+    lenstools.catalog.Catalog. We use the exact same implementation except we 
+    update the change which step function is called.
+    """
+    catalog_columns = catalog.colnames
+
+    #Group by column interval
+    catalog["group"] = _modified_step(catalog[field],intervals,
+                                      np.array(range(1,len(intervals)+1)))
+    catalog_rebinned = list()
+    for n,i in enumerate(intervals):
+        catalog_rebinned.append(catalog[catalog["group"]==n+1][catalog_columns])
+    #Return re-binned catalog to user
+    return catalog_rebinned
 
 def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
     """
@@ -49,7 +90,8 @@ def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
         else:
             start = first_interval_index
             stop = last_interval_index+1
-            temp = orig_tomo_bin.rebin(new_intervals[start:stop],colname)
+            #temp = orig_tomo_bin.rebin(new_intervals[start:stop],colname)
+            temp = _modified_rebin(orig_tomo_bin,intervals[start:stop],colname)
             for j,bin_contribution in enumerate(temp):
                 rebinned_input[j+start].append(bin_contribution)
 
@@ -102,7 +144,7 @@ class StaticRebinner(object):
 
     @classmethod
     def from_old_bin_source_loc(cls, old_bin_source_loc, colnames=None,
-                                share_position_component):
+                                share_position_component=None):
         pass
 
 class DynamicRebinner(object):
@@ -168,12 +210,27 @@ class PseudoPhotozRebin(DynamicRebinner):
     bin_intervals : list of tuples, optional
         List of tuples of new intervals to rebin the catalogs to. If not 
         specified, then we will automatically use the same redshift intervals
-        as were used in the input catalog.
+        as were used in the input catalog. The intervals are assumed to be 
+        monotonically increasing. Within a tuple representing an interval, 
+        the bin is assumed to be inclusive at the minimum value and exclusive 
+        at the maximum value.
+    colname : str,optional
+        The name of the photoz column. By default it is 'z'.
     min_bin_zero : bool, optional
         If bin_intervals was not specified. This asks if the lowest bin 
         interval should end at z = 0 because this may not be the case. If False,
         any galaxy with photoz between z=0 and the lowest bin are discarded. 
         Default is False.
+    max_bin_value : float, optional
+        If bin_intervals was not specified. This asks for the exclusive value 
+        that the highest bin interval should end at. If it is not provided and 
+        bin interval was not specified, the exclusive limit is set to the next 
+        floating point value after the floating point value already in the bin.
+    contact_intervals : bool, optional
+        If bin_intervals was not specified. This asks if the upper limit of one 
+        interval is always equal to the lower limit of the next interval. If 
+        this is not the case, then there can be gaps between intervals. Default 
+        is True. 
     update_in_place : bool, optional
         Whether or not the Shear Catalogs should have their redshifts updated 
         in place. Presently, this is required. The actual binning of the 
@@ -183,14 +240,21 @@ class PseudoPhotozRebin(DynamicRebinner):
         it.
     """
 
-    def __init__(self, noise_function,
-                 bin_intervals=None,
-                 min_bin_zero = False,
+    def __init__(self, noise_function, bin_intervals=None, colname = 'z',
+                 min_bin_zero = False, max_bin_value = None,
+                 contact_intervals = True,
                  update_in_place = True,
                  save_file=None):
         self.noise_function = noise_function
         self.bin_intervals = bin_interval
+        self.colname = colname
+
+        # these next 3 variables are only important if we are dynamically
+        # identifying the intervals
         self.min_bin_zero = min_bin_zero
+        self.max_bin_value = max_bin_value
+        self.contact_intervals = contact_intervals
+
         assert update_in_place
         self.update_in_place = update_in_place
         assert save_file is None
@@ -201,9 +265,25 @@ class PseudoPhotozRebin(DynamicRebinner):
 
         if self.bin_interval is None:
             bin_interval = []
-            # need to check whether intervals are inclusive or exclusive
+
+            n = len(data_object)
             for i,catalog in enumerate(data_object):
-                pass
+                if i == 0 and self.min_bin_zero:
+                    min_val = 0.0
+                elif self.contact_intervals and i>0:
+                    min_val = max_val
+                else:
+                    min_val = np.amin(catalog[self.colname])
+
+                if self.contact_intervals and i<(n-1):
+                    max_val = np.amin(data_object[i+1][self.colname])
+                elif i == (n-1) and (self.max_bin_value is not None):
+                    max_val = max_bin_value
+                else:
+                    max_val = np.nextafter(np.amax(catalog[self.colname]),
+                                           np.inf)
+                bin_interval.append((min_val,max_val))
+            self.bin_interval = bin_interval
 
         for i,catalog in enumerate(data_object):
             photoz = func(catalog["z"],map_id,bin_num)
@@ -211,7 +291,7 @@ class PseudoPhotozRebin(DynamicRebinner):
                 catalog["z"] = photoz
             else:
                 raise NotImplementedError()
-        return data_object
+        return self.bin_interval, data_object, self.colname
 
 
 class ShearCatRebinning(IntermediateProcedureStep):
@@ -229,3 +309,22 @@ class ShearCatRebinning(IntermediateProcedureStep):
 
     def __init__(self):
         pass
+
+
+    
+if __name__ == '__main__':
+
+
+    intervals = [(-1,5),(5,11),(15,55)]
+
+    values = np.arange(-1.,18.,step=3)
+
+    print values
+    print intervals
+    print step(values,intervals, np.array(range(1,len(intervals)+1)))
+    print step(values.astype(np.int),intervals,
+               np.array(range(1,len(intervals)+1)))
+                
+    # The step function does not handle values that: fall on the edge of an
+    # interval
+    print modified_step(values,intervals, np.array(range(1,len(intervals)+1)))
