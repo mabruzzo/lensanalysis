@@ -194,7 +194,7 @@ class ConstantBias(PhotozNoiseAddition):
         return self.bias*(1.+zspec)
 
 
-class PseudoPhotozRebin(DynamicRebinner):
+class PseudoPhotozRebinner(DynamicRebinner):
     """
     This file imitates photometric redshift errors by applying photo-z errors
     to the input catalog and then rebinning the catalog by the photo-z values.
@@ -242,8 +242,7 @@ class PseudoPhotozRebin(DynamicRebinner):
 
     def __init__(self, noise_function, bin_intervals=None, colname = 'z',
                  min_bin_zero = False, max_bin_value = None,
-                 contact_intervals = True,
-                 update_in_place = True,
+                 contact_intervals = True, update_in_place = True,
                  save_file=None):
         self.noise_function = noise_function
         self.bin_intervals = bin_interval
@@ -307,24 +306,11 @@ class ShearCatRebinning(IntermediateProcedureStep):
     refactor.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self,rebinner):
+        self.rebinner = rebinner
 
-
-    
-if __name__ == '__main__':
-
-
-    intervals = [(-1,5),(5,11),(15,55)]
-
-    values = np.arange(-1.,18.,step=3)
-
-    print values
-    print intervals
-    print step(values,intervals, np.array(range(1,len(intervals)+1)))
-    print step(values.astype(np.int),intervals,
-               np.array(range(1,len(intervals)+1)))
-                
-    # The step function does not handle values that: fall on the edge of an
-    # interval
-    print modified_step(values,intervals, np.array(range(1,len(intervals)+1)))
+    def intermediate_operation(self,data_object,packet):
+        if self.rebinner = None:
+            return data_object
+        else:
+            return self.rebinner.rebin(data_object,map_id)
