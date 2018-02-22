@@ -351,6 +351,9 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
     def get_cosmo_name(self):
         return self._cosmo_name
 
+    def get_ppz_shear_cat_loader(self,name):
+        raise NotImplementedError("Needs to be implemented for ppz")
+
 def _get_abs_paths(config,section_option_l,config_file_path):
     """
     Gets absolute paths from a Configuration File.
@@ -386,13 +389,17 @@ def _get_sampled_cosmo_config_paths(config, config_file_path):
                         ("SamplingCosmology","shear_cat_config")]
     return _get_cosmo_config_paths(config, config_file_path, section_option_l)
 
-def _get_fid_cosmo_config_paths(config,config_file_path):
+def _get_fid_cosmo_config_paths(config,config_file_path,photoz=True):
     section_option_l = [("FiducialCosmology","root_dir"),
                         ("FiducialCosmology","storage_config"),
                         ("FiducialCosmology","shear_cat_root_dir"),
-                        ("FiducialCosmology","shear_cat_config"),
-                        ("FiducialCosmology","photoz_config")]
-    return _get_cosmo_config_paths(config, config_file_path, section_option_l)
+                        ("FiducialCosmology","shear_cat_config")]
+    if photoz:
+        section_option_l.append(("FiducialCosmology","photoz_config"))
+    temp = _get_cosmo_config_paths(config, config_file_path, section_option_l)
+    if not photoz:
+        temp["photoz_config"] = None
+    return temp
 
 def _setup_config_parser(config_data):
     storage_config = StorageConfig(config_data["storage_config"])
@@ -431,9 +438,11 @@ class CosmoCollectionConfigBuilder(object):
         cache = None
         if include_cache:
             raise RuntimeError()
-
-        temp = ConfigParser.SafeConfigParser()
-        temp.read(self._fiducial_cosmology_config["photoz_config"])
+        if self._fiducial_cosmology_config["photoz_config"] is None:
+            ppz_config = None
+        else:
+            temp = ConfigParser.SafeConfigParser()
+            temp.read(self._fiducial_cosmology_config["photoz_config"])
         ppz_config = PseudoPhotozConfig(temp)
         
         return FiducialStorageCollection(config_data["fiducial_name"],
