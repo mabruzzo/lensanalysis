@@ -277,8 +277,10 @@ class CosmologyAnalysisCollection(object):
         return self._storage_config.num_tomo_bins()
 
     def list_analysis_product_names(self):
-        temp = os.listdir(self_root_path)
-        return [path for path in temp if os.path.isdir(path)]
+        root_path = self._root_path
+        temp = os.listdir(root_path)
+        return [path for path in temp if os.path.isdir(os.path.join(root_path,
+                                                                    path))]
 
     def add_analysis_product_storage(self,name,save_config=None):
         """

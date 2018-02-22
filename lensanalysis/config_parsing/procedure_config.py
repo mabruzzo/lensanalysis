@@ -46,7 +46,7 @@ def _load_indiv_bin_vals(config, section, option, num_bins, val_type = int):
 
 class ProcedureConfig(object):
     def __init__(self,procedure_config):
-        assert isinstance(self._config,SequentialArgConfigParser)
+        assert isinstance(procedure_config,SequentialArgConfigParser)
         self._config = procedure_config
 
     def has_peak_count_bins(self):
@@ -126,7 +126,7 @@ class ProcedureConfig(object):
                                             "tomo_bin_max", num_bins,
                                             val_type = float)
             bin_count_l =_load_indiv_bin_vals(self._config, "PeakCountBins",
-                                              "tomo_bin_min", num_bins,
+                                              "tomo_bin_count", num_bins,
                                               val_type = int)
 
         out = []
