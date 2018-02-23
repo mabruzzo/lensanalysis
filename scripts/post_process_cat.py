@@ -93,6 +93,13 @@ parser.add_argument("--max",dest = "max_realization", action = "store",
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
                             "realization to be processed."))
+parser.add_argument("--ppz",dest="ppz", action = "store_true", default=False,
+                    help = ("Specify that the analysis is being performed "
+                            "using PseudoPhotoz datasets. The name of the "
+                            "dataset must be specified in the photoz "
+                            "configuration file. Specification of the "
+                            "--fiducial flag in addition to this flag is "
+                            "meaningless."))
 parser.add_argument("id",nargs=1,
                     help = "The name of cosmology to post-process.")
 
@@ -111,7 +118,7 @@ def determine_saved_products(cmd_args, proc_config):
     for every analysis product we want to save.
     """
     out = default_value_UAPC(False)
-    
+
     if cmd_args.save is not None:
         setup_saved_products_helper(out, cmd_args.save)
     else:
@@ -121,14 +128,18 @@ def determine_saved_products(cmd_args, proc_config):
                                     proc_config.get_default_saved_products())
     return out
 
-def _starting_procedure_step(begin,name,analysis_storage,cosmo_storage_col):
-    
+def _starting_procedure_step(begin,name,analysis_storage,cosmo_storage_col,
+                             ppz=False):
+
     if begin[1] == 'shear_cat':
         if isinstance(begin[1],tuple):
             assert len(begin[0]) == 0
         else:
             assert begin[0] is Descriptor.none
-        loader = cosmo_storage_col.get_shear_cat_loader(name)
+        if ppz:
+            loader = cosmo_storage_col.get_ppz_shear_cat_loader(name)
+        else:
+            loader = cosmo_storage_col.get_shear_cat_loader(name)
     else:
         print analysis_storage.feature_products.tomo_peak_locations
         loader = analysis_storage[begin]
@@ -153,7 +164,7 @@ def _get_min_max_realizations(cmd_args,proc_config):
     else:
         min_realization = proc_config.get_min_realization()
     assert min_realization > 0
-        
+
     if cmd_args.max_realization is not None:
         max_realization = cmd_args.max_realization
         assert isinstance(max_realization,int)
@@ -165,7 +176,7 @@ def _get_min_max_realizations(cmd_args,proc_config):
     return min_realization,max_realization
 
 def _setup_generator(cmd_args,proc_config,nprocs=1,rank=0):
-    
+
     min_realization,max_realization = _get_min_max_realizations(cmd_args,
                                                                 proc_config)
 
@@ -203,8 +214,15 @@ def _setup_mpi_helper(builder,comm,name,save_config=None,
     the other processes must call this. By doing this we can avoid issues 
     where different processes try to write a directory at the same time.
     """
-    if cmd_args.fiducial:
+    if cmd_args.fiducial or cmd_args.ppz:
         cosmo_storage_col = builder.get_fiducial_storage_collection()
+        if cmd_args.ppz:
+            if cosmo_storage_col.ppz_config is None:
+                raise ValueError("the photoz_config option was not specified "
+                                 "in the cosmology configuration file.")
+            if not cosmo_storage_col.ppz_config.has_identifier(name):
+                raise ValueError(("{:s} was not specified in the photoz "
+                                  "configuration file.").format(name[:-4]))
     else:
         cosmo_storage_col = builder.get_sampled_storage_collection()
     save = save_config
@@ -271,10 +289,10 @@ def setup(cmd_args,comm):
 
     # first, read in the procedure configuration file
     proc_config = ProcedureConfig.from_fname(cmd_args.procedure_config)
-    
+
     if cmd_args.save is not None and cmd_args.include is not None:
         raise ValueError("-s/--save and -i/--include cannot both be set")
-    
+
     # at this point, create an instance of analysis product collection and fill
     # in the appropriate locations with True/False (whether or not we wish to
     # save the file.
@@ -296,6 +314,10 @@ def setup(cmd_args,comm):
         rank = comm.Get_rank()
 
     name = cmd_args.id[0]
+
+    if cmd_args.ppz and name[:-4] != '_ppz':
+        name = ''.join([name,'_ppz'])
+
     if nprocs == 1:
         temp = _setup_mpi_helper(builder, comm, name, save_config, 
                                  begin = begin)
@@ -324,10 +346,10 @@ def setup(cmd_args,comm):
             # realizations saved by any rank process.
 
     # finally, we move to actually building our procedure.
-    
+    logging.info("Constructing the Procedure")
     # we start with the features and work our way backwards
     first_step = _starting_procedure_step(begin, name, analysis_storage,
-                                          cosmo_storage_col)
+                                          cosmo_storage_col, cmd_args.ppz)
 
     # build the remaining steps
     remaining_steps = build_procedure(begin, proc_config,
@@ -339,8 +361,6 @@ def setup(cmd_args,comm):
     procedure.add(first_step)
 
     logging.info("Setting up the Generator")
-    # the barrier is here for debugging
-
     generator = _setup_generator(cmd_args, proc_config,
                                  nprocs = nprocs, rank = rank)
     return procedure,generator

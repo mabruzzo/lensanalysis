@@ -352,13 +352,18 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
         return self._cosmo_name
 
     def get_ppz_shear_cat_loader(self,name):
-        raise NotImplementedError("Needs to be implemented for ppz")
+        assert name[-4:] == '_ppz'
+        fid_name = self.ppz_config.get_fid_name(name[:-4])
+        if fid_name is None:
+            raise ValueError("No fid_name has been specified for "
+                             "{:s}".format(name))
+        return self.get_shear_cat_loader(fid_name)
 
 def _get_abs_paths(config,section_option_l,config_file_path):
     """
     Gets absolute paths from a Configuration File.
     """
-    
+
     config_file_dir = os.path.dirname(config_file_path)
 
     starting_dir = os.getcwd()

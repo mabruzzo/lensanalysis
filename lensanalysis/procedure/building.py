@@ -183,6 +183,14 @@ def build_shear_conversion(begin, procedure_config, storage_collection,
 
     return second_step
 
+def build_rebinning(begin, procedure_config, storage_collection,
+                    objects_to_save, following_sequential_step = None,
+                    tomo =False, num_tomo_bins=-1, ppz = False):
+    """
+    Constructs the steps to rebin the Shear Catalog.
+    """
+    raise NotImplementedError()
+
 def build_shear_catalog_noise(procedure_config,following_sequential_step):
     """
     Adds noise to the shear catalog.
@@ -200,7 +208,7 @@ def build_shear_catalog_noise(procedure_config,following_sequential_step):
 
 def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                     storage_collection, objects_to_save,
-                                    num_tomo_bins =-1):
+                                    num_tomo_bins =-1,ppz=False):
     """
     Tries to build the procedure which can go as far back as converting the 
     shear catalog into the shear map.
@@ -257,20 +265,22 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
 
 def _build_procedure_helper(begin_object, procedure_config,
                             storage_collection, objects_to_save,
-                            num_tomo_bins):
+                            num_tomo_bins,ppz=False):
     # first we will try to build the non-tomographic steps
     non_tomo_proc = _build_procedure_from_shear_cat(begin_object,
                                                     procedure_config,
                                                     storage_collection,
                                                     objects_to_save,
-                                                    num_tomo_bins =-1)
-        
+                                                    num_tomo_bins =-1,
+                                                    ppz=ppz)
+
     # next we will try to build the tomographic steps
     tomo_proc = _build_procedure_from_shear_cat(begin_object,
                                                 procedure_config,
                                                 storage_collection,
                                                 objects_to_save,
-                                                num_tomo_bins = num_tomo_bins)
+                                                num_tomo_bins = num_tomo_bins,
+                                                ppz = ppz)
 
     if tomo_proc is not None:
         # need to wrap the steps for rebinning if necessary
@@ -297,14 +307,14 @@ def _build_procedure_helper(begin_object, procedure_config,
         return next_step
 
 def build_procedure(begin_object, procedure_config, save_config,
-                    storage_collection, num_tomo_bins):
+                    storage_collection, num_tomo_bins, ppz=False):
 
     begin_object = (_convert_descriptor(begin_object[0]), begin_object[1])
 
     objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config,
                                    storage_collection, objects_to_save,
-                                   num_tomo_bins)
+                                   num_tomo_bins,ppz)
 
     
     remaining = filter(lambda key : objects_to_save[key],

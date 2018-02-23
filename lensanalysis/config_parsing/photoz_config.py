@@ -162,14 +162,3 @@ class PseudoPhotozConfig(PhotozConfig):
         else:
             raise NotImplementedError("Not yet equipped to handle stochastic "
                                       "noise")
-        
-
-if __name__ == '__main__':
-    p = 
-    print p.match('name_01').groups()[0]
-    print p.match('name_0').groups()[0]
-    print p.match('name_037').groups()[0]
-    print p.match('names_0')
-
-
-    [0].remove(1)
