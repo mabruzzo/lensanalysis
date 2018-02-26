@@ -135,7 +135,7 @@ def _starting_procedure_step(begin,name,analysis_storage,cosmo_storage_col,
         if isinstance(begin[1],tuple):
             assert len(begin[0]) == 0
         else:
-            assert begin[0] is Descriptor.none
+            assert (begin[0] is Descriptor.none) or (begin[0] == ())
         if ppz:
             loader = cosmo_storage_col.get_ppz_shear_cat_loader(name)
         else:
@@ -278,7 +278,7 @@ def _get_begin(cmd_args):
     parser = SafeNameParser()
 
     if cmd_args.begin is None:
-        begin = ((),"shear_cat")
+        begin = (Descriptor.none,"shear_cat")
     else:
         begin = parser.parse_name(cmd_args.begin)
 

@@ -96,12 +96,12 @@ class VariableSectionReader(object):
         return len(options) == 0
 
     def build_info_dict(self,identifier):
-        num = identifier[identifier]
+        num = self.get_identifier_num(identifier)
 
         out = {}
         for option_name, option_template,val_type in self.other_options:
             method = _retrieval_method(self.config,type=val_type)
-
+            
             try:
                 val = method(self.section_name,option_template.format(num))
             except ConfigParser.NoOptionError:
@@ -114,7 +114,7 @@ class VariableSectionReader(object):
 
     def build_all_info_dicts(self,config):
         out = {}
-        for identifier in self._identity_map.iterkeys()
+        for identifier in self._identity_map.iterkeys():
             out[identifier] = self.build_info_dict(identifier)
         return out
 
@@ -122,8 +122,8 @@ class VariableSectionReader(object):
 #_photo_z_section_reader = VariableSectionReader(
 _photo_z_options = [("bias_factor","bias_factor_{:d}",float),
                     ("scatter_factor","scatter_factor_{:d}",float),
-                    ("stochastic_seed","stochastic_seed_{:d}",float),
-                    ("constant_seed","constant_seed_{:d}",float)]
+                    ("stochastic_seed","stochastic_seed_{:d}",int),
+                    ("constant_seed","constant_seed_{:d}",bool)]
 
 class PhotozConfig(object):
     def __init__(self,config):
@@ -132,7 +132,7 @@ class PhotozConfig(object):
                                                      re.compile('name_(.*)'),
                                                      _photo_z_options,
                                                      "StandardSettings",
-                                                     int)
+                                                     None)
 
     def has_identifier(self,identifier):
         return identifier in self._section_reader.get_identifiers()
@@ -146,7 +146,7 @@ class PseudoPhotozConfig(PhotozConfig):
         return identifier[:-4] in self._section_reader.get_identifiers()
 
     def get_fid_name(self,identifier):
-        num = self._section_reader.get_identifier_num(self,identifier[:-4])
+        num = self._section_reader.get_identifier_num(identifier[:-4])
         try:
             return self._config.get("PseudoPhotozSource",
                                     "fid_name_{:d}".format(num))
@@ -158,7 +158,7 @@ class PseudoPhotozConfig(PhotozConfig):
 
         # for now we only allow constant bias.
         if photoz_info["scatter_factor"] == 0:
-            return ConstantBias(photoz_info["bias"])
+            return ConstantBias(photoz_info["bias_factor"])
         else:
             raise NotImplementedError("Not yet equipped to handle stochastic "
                                       "noise")

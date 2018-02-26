@@ -285,12 +285,13 @@ class PseudoPhotozRebinner(DynamicRebinner):
                 if self.contact_intervals and i<(n-1):
                     max_val = np.amin(data_object[i+1][self.colname])
                 elif i == (n-1) and (self.max_bin_value is not None):
-                    max_val = max_bin_value
+                    max_val = self.max_bin_value
                 else:
                     max_val = np.nextafter(np.amax(catalog[self.colname]),
                                            np.inf)
                 bin_intervals.append((min_val,max_val))
             self.bin_intervals = bin_intervals
+            print self.bin_intervals
 
         in_place = self.update_in_place
         for i,catalog in enumerate(data_object):
@@ -322,4 +323,4 @@ class ShearCatRebinning(IntermediateProcedureStep):
         if self.rebinner is None:
             return data_object
         else:
-            return self.rebinner.rebin(data_object,map_id)
+            return self.rebinner.rebin(data_object,packet.data_id)

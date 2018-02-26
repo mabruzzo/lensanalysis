@@ -353,7 +353,7 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
 
     def get_ppz_shear_cat_loader(self,name):
         assert name[-4:] == '_ppz'
-        fid_name = self.ppz_config.get_fid_name(name[:-4])
+        fid_name = self.ppz_config.get_fid_name(name)
         if fid_name is None:
             raise ValueError("No fid_name has been specified for "
                              "{:s}".format(name))

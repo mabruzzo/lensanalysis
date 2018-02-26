@@ -253,7 +253,7 @@ class ProcedureConfig(object):
             return None
 
         if self._config.has_option("Rebinning","bin_limits"):
-            vals = getfloat_list("Rebinning","bin_limits")
+            vals = self._config.getfloat_list("Rebinning","bin_limits")
             if len(vals) == 1 and vals[0] == -1:
                 return num_bins,None
             if len(vals) not in [num_bins+1, 2*num_bins]:
@@ -308,7 +308,6 @@ class ProcedureConfig(object):
             val = self._config.getfloat("Rebinning", "max_bin_upper_bound")
             num_specified +=1
         except ConfigParser.NoOptionError:
-            if self._config.
             val = None
         try:
             inclusive = self._config.getboolean("Rebinning",
