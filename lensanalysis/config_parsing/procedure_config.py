@@ -45,6 +45,11 @@ def _load_indiv_bin_vals(config, section, option, num_bins, val_type = int):
     return vals
 
 class ProcedureConfig(object):
+    """
+    We should probably break this up into individual objects that tracks 
+    configuration of different tasks.
+    """
+
     def __init__(self,procedure_config):
         assert isinstance(procedure_config,SequentialArgConfigParser)
         self._config = procedure_config
@@ -214,3 +219,119 @@ class ProcedureConfig(object):
         config_parser = SequentialArgConfigParser()
         config_parser.read(fname)
         return cls(config_parser)
+
+    def has_non_ppz_rebinning(self):
+        """
+        Indicating whether or not there will be rebinning in the sense that the 
+        bounds of one or more tomographic bins is changed. If the pseudo photoz 
+        is being used, but the intervals of each tomographic remain the same 
+        (and the galaxies will be rebinned so that they are binned by their 
+        photoz, not their z_spec) this returns False.
+        """
+        result = self._config.getboolean("Rebinning","rebin")
+
+        if result:
+            raise NotImplementedError("Not presently equipped to handle "
+                                      "rebinning. For now the rebin\noption "
+                                      "must be set to False.")
+        return result
+    
+    def get_bin_limits(self):
+        """
+        The bin limits have been explicitly specified of the resulting bins.
+
+        If we are running analysis on a pseudo photoz dataset using the input 
+        bins, this is implicitly asking for the input bins.
+        """
+        if self._config.has_option("Rebinning","num_bins"):
+            num_bins = self._config.getint("Rebinning","num_bins")
+            if num_bins == -1:
+                return None
+            if num_bins <1:
+                raise ValueError("num_bins must be -1 or a positive integer.")
+        else:
+            return None
+
+        if self._config.has_option("Rebinning","bin_limits"):
+            vals = getfloat_list("Rebinning","bin_limits")
+            if len(vals) == 1 and vals[0] == -1:
+                return num_bins,None
+            if len(vals) not in [num_bins+1, 2*num_bins]:
+                raise ValueError(("bin_limits must be equal to -1 (not "
+                                  "specifying any limits)\nor must provide "
+                                  "either {:d} or {:d} monotonically increaing "
+                                  "values (the neighboring values can also\nbe "
+                                  "equal to one another.").format(num_bins+1,
+                                                                  2*num_bins))
+
+            if (np.diff(vals)<0).any():
+                raise ValueError("values of bin_limits must be monotonically "
+                                 "increasing (neighboring values can also\nbe "
+                                 "equal to one another.")
+
+            if len(vals) == num_bins+1:
+                bin_lim = zip(vals[:-1],vals[1:])
+            else:
+                bin_lim = zip(vals[::2],vals[1::2])
+            return num_bins,bin_limit
+        return num_bins, None
+
+    def input_bin_lim_guidelines(self):
+        """
+        For use with ppz without any rebinning. If individual bin_limits have 
+        not been specified, returns a dictionary of guidelines for determining 
+        the input bin limits.
+
+        The keys of the dictionary include:
+            "min_bin_lower_bound"
+            "max_bin_upper_bound"
+            "max_bin_inclusive_upper_bound"
+            "contact_intervals"
+        """
+        # first we make sure that the explicit bins have not been provided
+        temp = self.get_bin_limits()
+        if temp is not None and temp[1] is not None:
+            return None
+
+        num_specified = 0
+        out = {}
+
+        try: 
+            val = self._config.getfloat("Rebinning", "min_bin_lower_bound")
+            num_specified +=1
+        except ConfigParser.NoOptionError:
+            val = None
+        out["min_bin_lower_bound"] = val
+
+
+        try: 
+            val = self._config.getfloat("Rebinning", "max_bin_upper_bound")
+            num_specified +=1
+        except ConfigParser.NoOptionError:
+            val = None
+        out["max_bin_upper_bound"] = val
+
+
+        if val is not None:
+            try:
+                val = self._config.getboolean("Rebinning",
+                                            "max_bin_inclusive_upper_bound")
+            except ConfigParser.NoOptionError:
+                val = False
+        # val will be None, if "max_bin_upper_bound" was not specified.
+        out["max_bin_inclusive_upper_bound"] = val
+
+
+        try: 
+            val = self._config.getboolean("Rebinning", "contact_intervals")
+            num_specified +=1
+
+        except ConfigParser.NoOptionError:
+            val = None
+        out["contact_intervals"] = val
+
+        if num_specified == 0:
+            return None
+        else:
+            return out
+        
