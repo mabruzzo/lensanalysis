@@ -1,4 +1,3 @@
-from __future__ import divison
 from operator import add
 
 import numpy as np
@@ -6,7 +5,7 @@ import astropy.table as tbl
 
 from lenstools.utils.algorithms import step
 
-from .procedure.procedure import IntermediateProcedureStep
+from .procedure import IntermediateProcedureStep
 from ..misc.log import logprocedure
 
 
@@ -34,6 +33,8 @@ def _modified_rebin(catalog,intervals,field="z"):
     lenstools.catalog.Catalog. We use the exact same implementation except we 
     update the change which step function is called.
     """
+    #print catalog
+    #print intervals
     catalog_columns = catalog.colnames
 
     #Group by column interval
@@ -53,7 +54,7 @@ def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
     Assumes that the new_intervals are monotomic
     """
 
-    raise RuntimeError("I'm not convinced this works!")
+    #raise RuntimeError("I'm not convinced this works!")
     num_intervals = len(new_intervals)
     rebinned_input = [[] for i in range(num_intervals)]
     for orig_tomo_bin in orig_tomo_bins:
@@ -77,26 +78,35 @@ def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
             # bins
             break
 
-        for j,interval in enumerate(new_intervals[start_index:]):
+        for j,interval in enumerate(new_intervals[first_interval_index:]):
             if max_val < interval[1]:
-                last_interval_index = j
+                last_interval_index = j + first_interval_index
                 break
         else:
-            last_interval_index = len(new_intervals)-1
+            last_interval_index = len(new_intervals)
 
+        #print "first_interval_index = {:d}".format(first_interval_index)
+        #print "last_interval_index = {:d}".format(last_interval_index)
         if first_interval_index == last_interval_index:
             rebinned_input[first_interval_index].append(orig_tomo_bin)
         else:
             start = first_interval_index
             stop = last_interval_index+1
             #temp = orig_tomo_bin.rebin(new_intervals[start:stop],colname)
-            temp = _modified_rebin(orig_tomo_bin,intervals[start:stop],colname)
+            temp = _modified_rebin(orig_tomo_bin,new_intervals[start:stop],
+                                   colname)
             for j,bin_contribution in enumerate(temp):
                 rebinned_input[j+start].append(bin_contribution)
 
     # at this point, rebinned_input[i] contains a list of all contributions of
     # all of the old bins to the new tomographic bin i
-    out = [tbl.vstack(elem) for elem in rebinned_input]
+    #print rebinned_input
+    out = []
+    for i,elem in enumerate(rebinned_input):
+        if len(elem) > 0:
+            out.append(tbl.vstack(elem))
+        else:
+            raise ValueError("Bin {:d} has no entries.".format(i+1))
 
     return out
 
@@ -243,7 +253,7 @@ class PseudoPhotozRebinner(DynamicRebinner):
                  contact_intervals = True, update_in_place = True,
                  save_file=None):
         self.noise_function = noise_function
-        self.bin_intervals = bin_interval
+        self.bin_intervals = bin_intervals
         self.colname = colname
 
         # these next 3 variables are only important if we are dynamically
@@ -260,8 +270,8 @@ class PseudoPhotozRebinner(DynamicRebinner):
     def _determine_bins(self,data_object,map_id):
         func = self.noise_function
 
-        if self.bin_interval is None:
-            bin_interval = []
+        if self.bin_intervals is None:
+            bin_intervals = []
 
             n = len(data_object)
             for i,catalog in enumerate(data_object):
@@ -279,16 +289,17 @@ class PseudoPhotozRebinner(DynamicRebinner):
                 else:
                     max_val = np.nextafter(np.amax(catalog[self.colname]),
                                            np.inf)
-                bin_interval.append((min_val,max_val))
-            self.bin_interval = bin_interval
+                bin_intervals.append((min_val,max_val))
+            self.bin_intervals = bin_intervals
 
+        in_place = self.update_in_place
         for i,catalog in enumerate(data_object):
-            photoz = func(catalog["z"],map_id,bin_num)
+            photoz = func(catalog["z"],map_id,bin_num = i+1)
             if in_place:
-                catalog["z"] = photoz
+                catalog["z"] += photoz
             else:
                 raise NotImplementedError()
-        return self.bin_interval, data_object, self.colname
+        return self.bin_intervals, data_object, self.colname
 
 
 class ShearCatRebinning(IntermediateProcedureStep):
@@ -308,7 +319,7 @@ class ShearCatRebinning(IntermediateProcedureStep):
         self.rebinner = rebinner
 
     def intermediate_operation(self,data_object,packet):
-        if self.rebinner = None:
+        if self.rebinner is None:
             return data_object
         else:
             return self.rebinner.rebin(data_object,map_id)
