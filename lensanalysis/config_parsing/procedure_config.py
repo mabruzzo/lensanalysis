@@ -285,7 +285,6 @@ class ProcedureConfig(object):
         The keys of the dictionary include:
             "min_bin_lower_bound"
             "max_bin_upper_bound"
-            "max_bin_inclusive_upper_bound"
             "contact_intervals"
         """
         # first we make sure that the explicit bins have not been provided
@@ -304,30 +303,32 @@ class ProcedureConfig(object):
         out["min_bin_lower_bound"] = val
 
 
+        # check to see if the upper limit should be inclusive
         try: 
             val = self._config.getfloat("Rebinning", "max_bin_upper_bound")
             num_specified +=1
         except ConfigParser.NoOptionError:
+            if self._config.
             val = None
+        try:
+            inclusive = self._config.getboolean("Rebinning",
+                                                "max_bin_inclusive_upper_bound")
+            if inclusive:
+                if val is None:
+                    raise ValueError("max_bin_inclusive_upper_bound should not "
+                                     "be True since max_bin_upper_bound is not "
+                                     "specified")
+                val = np.nextafter(val,np.inf)
+        except ConfigParser.NoOptionError:
+            pass
         out["max_bin_upper_bound"] = val
-
-
-        if val is not None:
-            try:
-                val = self._config.getboolean("Rebinning",
-                                            "max_bin_inclusive_upper_bound")
-            except ConfigParser.NoOptionError:
-                val = False
-        # val will be None, if "max_bin_upper_bound" was not specified.
-        out["max_bin_inclusive_upper_bound"] = val
 
 
         try: 
             val = self._config.getboolean("Rebinning", "contact_intervals")
             num_specified +=1
-
         except ConfigParser.NoOptionError:
-            val = None
+            val = True
         out["contact_intervals"] = val
 
         if num_specified == 0:
