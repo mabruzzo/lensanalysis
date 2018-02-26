@@ -283,8 +283,8 @@ class ProcedureConfig(object):
         the input bin limits.
 
         The keys of the dictionary include:
-            "min_bin_lower_bound"
-            "max_bin_upper_bound"
+            "min_bin_value"
+            "max_bin_value"
             "contact_intervals"
         """
         # first we make sure that the explicit bins have not been provided
@@ -300,7 +300,7 @@ class ProcedureConfig(object):
             num_specified +=1
         except ConfigParser.NoOptionError:
             val = None
-        out["min_bin_lower_bound"] = val
+        out["min_bin_value"] = val
 
 
         # check to see if the upper limit should be inclusive
@@ -321,7 +321,7 @@ class ProcedureConfig(object):
                 val = np.nextafter(val,np.inf)
         except ConfigParser.NoOptionError:
             pass
-        out["max_bin_upper_bound"] = val
+        out["max_bin_value"] = val
 
 
         try: 

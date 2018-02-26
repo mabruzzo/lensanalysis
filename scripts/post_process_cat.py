@@ -148,6 +148,16 @@ def _starting_procedure_step(begin,name,analysis_storage,cosmo_storage_col,
     first_step = LoadCollection(loader)
     return first_step
 
+def _get_ppz_noise(name,cosmo_storage_col,ppz=False):
+    """
+    returns the ppz noise object, if applicable.
+    """
+    if ppz:
+        ppz_config = cosmo_storage_col.ppz_config
+        return ppz_config.get_photoz_noise_addition(name)
+    else:
+        return None
+
 def simple_realization_generator(min_realization,max_realization):
     """
     max_realization is maximum inclusive.
@@ -351,10 +361,12 @@ def setup(cmd_args,comm):
     first_step = _starting_procedure_step(begin, name, analysis_storage,
                                           cosmo_storage_col, cmd_args.ppz)
 
+    ppz_noise = _get_ppz_noise(name,cosmo_storage_col,cmd_args.ppz)
     # build the remaining steps
     remaining_steps = build_procedure(begin, proc_config,
                                       save_config, analysis_storage,
-                                      cosmo_storage_col.get_num_tomo_bin())
+                                      cosmo_storage_col.get_num_tomo_bin(),
+                                      ppz_noise = ppz_noise)
     first_step.wrapped_step = remaining_steps
 
     procedure = SimpleProcedure()

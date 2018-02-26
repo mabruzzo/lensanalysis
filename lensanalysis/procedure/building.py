@@ -6,6 +6,7 @@ from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
+from .tomo_binning import PseudoPhotozRebinner, ShearCatRebinning
 from ..misc.analysis_collection import default_value_UAPC
 from ..misc.enum_definitions import Descriptor
 
@@ -185,11 +186,41 @@ def build_shear_conversion(begin, procedure_config, storage_collection,
 
 def build_rebinning(begin, procedure_config, storage_collection,
                     objects_to_save, following_sequential_step = None,
-                    tomo =False, num_tomo_bins=-1, ppz = False):
+                    num_tomo_bins=-1, ppz_noise = None):
     """
     Constructs the steps to rebin the Shear Catalog.
     """
-    raise NotImplementedError()
+    if procedure_config.has_non_ppz_rebinning():
+        raise NotImplementedError("Not presently equipped to handle actual "
+                                  "rebinning.")
+    if ppz_noise is None:
+        return following_sequential_step
+
+    # first lets get values to build the rebinner - checks for the bin limits
+    temp = procedure_config.get_bin_limits()
+    if temp is None or temp[0] is None:
+        # in this case, the bin_intervals are provided
+        num_bins,bin_intervals = procedure_config.get_bin_limits()
+        if num_bins != num_tomo_bins:
+            raise ValueError("For PseudoPhotoz using the original bins,\n"
+                             "the num_bins option of the Rebinning section of\n"
+                             "the Procedure Configuration file must be -1\n"
+                             "(unspecified) or match the value of the\n"
+                             "num_tomo_bins option in the General section of\n"
+                             "the storage configuration file.")
+        kwargs = {}
+    else:
+        # in this case the bin_intervals are not provided. Therefore, we need
+        # to check for guidelines to help determine the bin intervals
+        bin_intervals = None
+        kwargs = procedure_config.input_bin_lim_guidelines()
+    # now let's construct the rebinner.
+    rebinner = PseudoPhotozRebinner(ppz_noise, bin_intervals = bin_intervals,
+                                    colname='z', **kwargs)
+    
+    next_step = ShearCatRebinning(rebinner)
+    next_step.wrapped_step = following_sequential_step
+    return next_step
 
 def build_shear_catalog_noise(procedure_config,following_sequential_step):
     """
@@ -208,7 +239,7 @@ def build_shear_catalog_noise(procedure_config,following_sequential_step):
 
 def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                     storage_collection, objects_to_save,
-                                    num_tomo_bins =-1,ppz=False):
+                                    num_tomo_bins =-1,ppz_noise=None):
     """
     Tries to build the procedure which can go as far back as converting the 
     shear catalog into the shear map.
@@ -258,21 +289,33 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
                                          following_sequential_step =recent_step,
                                          tomo = tomo)
 
-    if begin_object == (Descriptor.none,"shear_cat") or recent_step is None:
+    if recent_step is None:
+        return None
+    
+    if begin_object == (Descriptor.none,"shear_cat"):
+        if ppz_noise is not None:
+            if not tomo:
+                raise ValueError("Cannot run pseudo photoz process with "
+                                 "non-tomographic dataset.")
+            recent_step = build_rebinning(begin_object, procedure_config,
+                                          storage_collection, objects_to_save,
+                                          following_sequential_step=recent_step,
+                                          num_tomo_bins = num_tomo_bins,
+                                          ppz_noise = ppz_noise)
         return recent_step
     else:
         raise ValueError("Not applicable beginning step")
 
 def _build_procedure_helper(begin_object, procedure_config,
                             storage_collection, objects_to_save,
-                            num_tomo_bins,ppz=False):
+                            num_tomo_bins,ppz_noise=None):
     # first we will try to build the non-tomographic steps
     non_tomo_proc = _build_procedure_from_shear_cat(begin_object,
                                                     procedure_config,
                                                     storage_collection,
                                                     objects_to_save,
                                                     num_tomo_bins =-1,
-                                                    ppz=ppz)
+                                                    ppz_noise=ppz_noise)
 
     # next we will try to build the tomographic steps
     tomo_proc = _build_procedure_from_shear_cat(begin_object,
@@ -280,7 +323,7 @@ def _build_procedure_helper(begin_object, procedure_config,
                                                 storage_collection,
                                                 objects_to_save,
                                                 num_tomo_bins = num_tomo_bins,
-                                                ppz = ppz)
+                                                ppz_noise = ppz_noise)
 
     if tomo_proc is not None:
         # need to wrap the steps for rebinning if necessary
@@ -307,16 +350,15 @@ def _build_procedure_helper(begin_object, procedure_config,
         return next_step
 
 def build_procedure(begin_object, procedure_config, save_config,
-                    storage_collection, num_tomo_bins, ppz=False):
+                    storage_collection, num_tomo_bins, ppz_noise=None):
 
     begin_object = (_convert_descriptor(begin_object[0]), begin_object[1])
 
     objects_to_save = copy.deepcopy(save_config)
     step = _build_procedure_helper(begin_object, procedure_config,
                                    storage_collection, objects_to_save,
-                                   num_tomo_bins,ppz)
+                                   num_tomo_bins,ppz_noise)
 
-    
     remaining = filter(lambda key : objects_to_save[key],
                        objects_to_save.keys())
     if len(remaining)!=0:

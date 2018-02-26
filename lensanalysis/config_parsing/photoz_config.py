@@ -146,7 +146,7 @@ class PseudoPhotozConfig(PhotozConfig):
         return identifier[:-4] in self._section_reader.get_identifiers()
 
     def get_fid_name(self,identifier):
-        num = self._section_reader.get_identifier_num(self,identifier)
+        num = self._section_reader.get_identifier_num(self,identifier[:-4])
         try:
             return self._config.get("PseudoPhotozSource",
                                     "fid_name_{:d}".format(num))
@@ -154,7 +154,7 @@ class PseudoPhotozConfig(PhotozConfig):
             return None
 
     def get_photoz_noise_addition(self,identifier):
-        photoz_info = self._section_reader.build_info_dict(identifier)
+        photoz_info = self._section_reader.build_info_dict(identifier[:-4])
 
         # for now we only allow constant bias.
         if photoz_info["scatter_factor"] == 0:

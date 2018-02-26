@@ -1,4 +1,4 @@
-#from __future__ import divison
+from __future__ import divison
 from operator import add
 
 import numpy as np
@@ -6,9 +6,8 @@ import astropy.table as tbl
 
 from lenstools.utils.algorithms import step
 
-#from .procedure import IntermediateProcedureStep
-from lensanalysis.procedure.procedure import IntermediateProcedureStep
-#from ..misc.log import logprocedure
+from .procedure.procedure import IntermediateProcedureStep
+from ..misc.log import logprocedure
 
 
 def _modified_step(x,intervals,vals):
@@ -216,11 +215,10 @@ class PseudoPhotozRebinner(DynamicRebinner):
         at the maximum value.
     colname : str,optional
         The name of the photoz column. By default it is 'z'.
-    min_bin_zero : bool, optional
-        If bin_intervals was not specified. This asks if the lowest bin 
-        interval should end at z = 0 because this may not be the case. If False,
-        any galaxy with photoz between z=0 and the lowest bin are discarded. 
-        Default is False.
+    min_bin_value : float, optional
+        If bin_intervals was not specified. This asks for the exclusive value 
+        that the highest bin interval should end at. If this is None, then the 
+        value is just set to the minimum value initially in the lowest bin.
     max_bin_value : float, optional
         If bin_intervals was not specified. This asks for the exclusive value 
         that the highest bin interval should end at. If it is not provided and 
@@ -241,7 +239,7 @@ class PseudoPhotozRebinner(DynamicRebinner):
     """
 
     def __init__(self, noise_function, bin_intervals=None, colname = 'z',
-                 min_bin_zero = False, max_bin_value = None,
+                 min_bin_value = False, max_bin_value = None,
                  contact_intervals = True, update_in_place = True,
                  save_file=None):
         self.noise_function = noise_function
@@ -250,7 +248,7 @@ class PseudoPhotozRebinner(DynamicRebinner):
 
         # these next 3 variables are only important if we are dynamically
         # identifying the intervals
-        self.min_bin_zero = min_bin_zero
+        self.min_bin_value = min_bin_value
         self.max_bin_value = max_bin_value
         self.contact_intervals = contact_intervals
 
@@ -267,8 +265,8 @@ class PseudoPhotozRebinner(DynamicRebinner):
 
             n = len(data_object)
             for i,catalog in enumerate(data_object):
-                if i == 0 and self.min_bin_zero:
-                    min_val = 0.0
+                if i == 0 and self.min_bin_value is not None:
+                    min_val = self.min_bin_value
                 elif self.contact_intervals and i>0:
                     min_val = max_val
                 else:
