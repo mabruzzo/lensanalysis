@@ -394,12 +394,14 @@ def _get_sampled_cosmo_config_paths(config, config_file_path):
                         ("SamplingCosmology","shear_cat_config")]
     return _get_cosmo_config_paths(config, config_file_path, section_option_l)
 
-def _get_fid_cosmo_config_paths(config,config_file_path,photoz=True):
+def _get_fid_cosmo_config_paths(config,config_file_path):
     section_option_l = [("FiducialCosmology","root_dir"),
                         ("FiducialCosmology","storage_config"),
                         ("FiducialCosmology","shear_cat_root_dir"),
                         ("FiducialCosmology","shear_cat_config")]
-    if photoz:
+    photoz = False
+    if config.has_option("FiducialCosmology","photoz_config"):
+        photoz = True
         section_option_l.append(("FiducialCosmology","photoz_config"))
     temp = _get_cosmo_config_paths(config, config_file_path, section_option_l)
     if not photoz:
@@ -448,7 +450,7 @@ class CosmoCollectionConfigBuilder(object):
         else:
             temp = ConfigParser.SafeConfigParser()
             temp.read(self._fiducial_cosmology_config["photoz_config"])
-        ppz_config = PseudoPhotozConfig(temp)
+            ppz_config = PseudoPhotozConfig(temp)
         
         return FiducialStorageCollection(config_data["fiducial_name"],
                                          config_data['root_dir'],
