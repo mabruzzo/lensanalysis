@@ -194,10 +194,12 @@ class PhotozNoiseAddition(object):
 
 class ConstantBias(PhotozNoiseAddition):
     def __init__(self,bias):
-        if bias < 0:
-            raise RuntimeError("Need to come up with rules for shifts that "
-                               "give negative photoz")
         self.bias = bias
+
+        if bias<0:
+            self.can_be_neg = True
+        else:
+            self.can_be_neg = False
 
     def __call__(self,zspec,map_id,bin_num):
         return self.bias*(1.+zspec)
@@ -298,6 +300,9 @@ class PseudoPhotozRebinner(DynamicRebinner):
             photoz = func(catalog["z"],map_id,bin_num = i+1)
             if in_place:
                 catalog["z"] += photoz
+                if func.can_be_neg:
+                    w = (catalog["z"] <0.0)
+                    catalog["z"][w] = 0.0
             else:
                 raise NotImplementedError()
         return self.bin_intervals, data_object, self.colname
