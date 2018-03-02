@@ -27,7 +27,6 @@ parser.add_argument("--fiducial",dest = "fiducial", action = "store_true",
                     help = ("Specify that the analysis is being performed on "
                             "the fiducial cosmology (rather than a sampled "
                             "cosmology."))
-
 parser.add_argument("-c", "--config", dest = "config", required = True,
                     help = ("Specify the configuration file that details how "
                             "all files are (or should be) saved."))
