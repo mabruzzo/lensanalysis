@@ -196,13 +196,33 @@ class ConstantBias(PhotozNoiseAddition):
     def __init__(self,bias):
         self.bias = bias
 
+        self.can_be_neg = False
         if bias<0:
             self.can_be_neg = True
-        else:
-            self.can_be_neg = False
 
     def __call__(self,zspec,map_id,bin_num):
         return self.bias*(1.+zspec)
+
+class InvertedConstantBias(PhotozNoiseAddition):
+    """
+    Assumes that noise photoz noise is modelled as
+    bph(zs) = bias * (1+zs)
+
+    This function assumes that we are given the photometric redshift (with 
+    only a constant bias) and we want to get the spectroscopic redshift back.
+    
+    zp = bph + zs -> zp = bias*(1+zs) + zs -> zp = bias+(1+bias)*zs
+    zs*(1+bias) = zp - bias
+    zs = (zp-bias)/(1+bias)
+    """
+    def __init__(self,bias):
+        self.bias = bias
+
+        self.can_be_neg = False
+        if bias>0:
+            self.can_be_neg = True
+    def __call__(self,zspec,map_id,bin_num):
+        return (zspec-bias)/(1. + bias)
 
 
 class PseudoPhotozRebinner(DynamicRebinner):
