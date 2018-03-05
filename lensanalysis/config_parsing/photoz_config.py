@@ -1,7 +1,7 @@
 import ConfigParser
 import re
 
-from ..procedure.tomo_binning import ConstantBias
+from ..procedure.tomo_binning import ConstantBias, InvertedConstantBias
 
 def _option_reader(config,section_name,required_option_regex):
     options = config.options(section_name)
@@ -123,7 +123,8 @@ class VariableSectionReader(object):
 _photo_z_options = [("bias_factor","bias_factor_{:d}",float),
                     ("scatter_factor","scatter_factor_{:d}",float),
                     ("stochastic_seed","stochastic_seed_{:d}",int),
-                    ("constant_seed","constant_seed_{:d}",bool)]
+                    ("constant_seed","constant_seed_{:d}",bool),
+                    ("zphot_start", "zphot_start_{:d}", bool)]
 
 class PhotozConfig(object):
     def __init__(self,config):
@@ -158,7 +159,10 @@ class PseudoPhotozConfig(PhotozConfig):
 
         # for now we only allow constant bias.
         if photoz_info["scatter_factor"] == 0:
-            return ConstantBias(photoz_info["bias_factor"])
+            if photoz_info["zphot_start"]:
+                return InvertedConstantBias(photoz_info["bias_factor"])
+            else:
+                return ConstantBias(photoz_info["bias_factor"])
         else:
             raise NotImplementedError("Not yet equipped to handle stochastic "
                                       "noise")
