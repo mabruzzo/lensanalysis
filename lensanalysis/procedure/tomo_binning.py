@@ -221,8 +221,9 @@ class InvertedConstantBias(PhotozNoiseAddition):
         self.can_be_neg = False
         if bias>0:
             self.can_be_neg = True
+
     def __call__(self,zspec,map_id,bin_num):
-        return (zspec-bias)/(1. + bias)
+        return (zspec-self.bias)/(1. + self.bias)
 
 
 class PseudoPhotozRebinner(DynamicRebinner):
