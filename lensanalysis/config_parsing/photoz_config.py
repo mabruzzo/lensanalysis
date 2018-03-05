@@ -139,7 +139,23 @@ class PhotozConfig(object):
         return identifier in self._section_reader.get_identifiers()
 
     def get_photoz_noise_addition(self,identifier):
-        raise NotImplementedError()
+        photoz_info = self._section_reader.build_info_dict(identifier)
+
+        # for now we only allow constant bias.
+        if photoz_info["scatter_factor"] == 0:
+            if photoz_info["zphot_start"]:
+                return InvertedConstantBias(photoz_info["bias_factor"])
+            else:
+                return ConstantBias(photoz_info["bias_factor"])
+        else:
+            raise NotImplementedError("Not yet equipped to handle stochastic "
+                                      "noise")
+
+    @classmethod
+    def from_fname(cls,fname):
+        temp = ConfigParser.SafeConfigParser()
+        temp.read(fname)
+        return cls(temp)
 
 class PseudoPhotozConfig(PhotozConfig):
     def has_identifier(self,identifier):
@@ -155,14 +171,4 @@ class PseudoPhotozConfig(PhotozConfig):
             return None
 
     def get_photoz_noise_addition(self,identifier):
-        photoz_info = self._section_reader.build_info_dict(identifier[:-4])
-
-        # for now we only allow constant bias.
-        if photoz_info["scatter_factor"] == 0:
-            if photoz_info["zphot_start"]:
-                return InvertedConstantBias(photoz_info["bias_factor"])
-            else:
-                return ConstantBias(photoz_info["bias_factor"])
-        else:
-            raise NotImplementedError("Not yet equipped to handle stochastic "
-                                      "noise")
+        return PhotozConfig.get_photoz_noise_addition(self,indentifier[:-4])
