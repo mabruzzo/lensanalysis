@@ -254,7 +254,8 @@ class FileGroupCollectionStorage(_BaseFileGroupCollection):
 
     def load(self,collection_id):
         if collection_id not in self:
-            raise ValueError("collection_id is not contained within storage")
+            raise ValueError(("collection_id {:d} is not contained within" 
+                              "storage").format(collection_id))
 
         out = []
         for i in range(self._num_elements):
