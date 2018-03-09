@@ -13,7 +13,9 @@ import ConfigParser
 import os, os.path
 
 from lenstools.pipeline.deploy import ParsedHandler
-from lenstools.pipeline.settings import JobSettings
+from lenstools.pipeline.settings import JobSettings, CatalogSettings
+
+from add_photoz_errors import get_input_template_and_indices,get_indices
 
 def write_catalog_configuration(template_file,outfile,photoz_name):
     config = ConfigParser.SafeConfigParser()
@@ -30,8 +32,7 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
                                         photoz_name):
     script_filename = path
 
-    job_settings = JobSettings.read(job_file,
-                                    "PosFileBuilding")
+    job_settings = JobSettings.read(job_file, "PosFileBuilding")
 
     num_proc = job_settings.cores_per_simulation
     arguments = ["-i {:s}".format(os.path.abspath(input_template)),
@@ -55,13 +56,52 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
         scriptfile.write('\n')
 
 
-def write_raytrace_script(path,system_file,job_file):
+def write_raytrace_script(path,job_file,job_handler,ic_id):
     # need to do this in one simple chunk
     # use the lensplanes saved under the name of the fiducial cosmology
-    pass
 
-def setup(photoz_name,system_file, job_file, input_template, start, stop,
-          photoz_config_fname):
+    """ 
+    This is basically a modified version of the writeRaySubmission bound 
+    method defined in the SimulationBatch class of LensTools
+    """
+    script_filename = path
+    job_settings = JobSettings.read(job_file, "RayTracing")
+
+    job_settings.num_cores = job_settings.cores_per_simulation
+
+    parts = ic_id.split("|")
+
+    if len(parts) == 2:
+        try:
+            config_fname = os.path.join(os.path.dirname(path),"catalog.ini")
+
+            raytracing_settings = CatalogSettings.read(config_fname)
+            if (raytracing_settings.lens_catalog_realizations
+                % job_settings.cores_per_simulation):
+		raise ValueError("The number of map realizations must be a "
+                                 "multiple of the number of cores per "
+                                 "simulation!")
+        except AssertionError:
+            raise NotImplementedError("Not currently able to handle Planes of "
+                                      "source galaxies.")
+    elif len(parts) == 1:
+        raise NotImplementedError("Not curently able handle "
+                                  "TelescopicMapSettings.")
+    else:
+        raise ValueError(("There are too many '|'' in your id: "
+                          "{0}".format(realizations_in_chunk[e])))
+    
+    executable = (job_settings.path_to_executable + " " +
+                  '-e {0} -c {1} "{2}" '.format(environment_file, config_fname,
+                                                ic_id))
+    with self.syshandler.open(script_filename,"w") as scriptfile:
+        scriptfile.write(job_handler.writePreamble(job_settings))
+        scriptfile.write(job_handler.writeExecution([executable],
+                                                    job_settings.num_cores,
+                                                    job_settings))
+
+def setup(photoz_name,system_file, job_file, catalog_template, input_template,
+          start, stop, photoz_config_fname,ic_id):
 
     # should probably check that the photoz_name is actually contained by the
     # configuration file
@@ -86,33 +126,52 @@ def setup(photoz_name,system_file, job_file, input_template, start, stop,
             raise RuntimeError(("{:s} already exists and it is not a "
                                 "file").format(config_fname))
     else:
-        write_catalog_configuration(template_file,config_fname,photoz_name)
+        write_catalog_configuration(catalog_template,config_fname,photoz_name)
 
     # create build_pos_files.sh
-    pos_file_script = os.path.join(new_dir,"build_pos_files.sh")
+    pos_file_script = os.path.abspath(os.path.join(new_dir,
+                                                   "build_pos_files.sh"))
     if os.path.exists(pos_file_script):
         if not os.path.isfile(pos_file_fname):
             raise RuntimeError(("{:s} already exists and it is not a "
                                 "file").format(pos_file_fname))
     else:
-        write_pos_file_builder_slurm_script(path,job_file,job_handler,
-                                        input_template,start,stop,
-                                        photoz_config_fname,
-                                        photoz_name)
+        write_pos_file_builder_slurm_script(pos_file_script, job_file,
+                                            job_handler, input_template,
+                                            start, stop, photoz_config_fname,
+                                            photoz_name)
 
 
     # create ray.sh
-    ray_file_script = os.path.join(new_dir,"ray.sh")
+    ray_file_script = os.path.abspath(os.path.join(new_dir,"ray.sh"))
     if os.path.exists(ray_file_script):
         if not os.path.isfile(ray_file_fname):
             raise RuntimeError(("{:s} already exists and it is not a "
                                 "file").format(ray_file_fname))
     else:
         # need to create ray.sh
-        pass
+        write_raytrace_script(ray_file_script,job_file,job_handler,ic_id)
+
+def get_config_file(cmd_args,attr_name,option_name):
+    fname = getattr(cmd_args,attr_name)
+    if os.path.isfile(fname):
+        return fname
+    raise ValueError(("The file name specified for {:s}, {:s}, does not point "
+                      "to an existing file.").format(option_name,fname))
 
 def driver(cmd_args):
-    pass
+    start,stop = get_indices(cmd_args)
+    input_template = get_input_template_and_indices(cmd_args)[0]
+    job_file = get_config_file(cmd_args,"job_options_file","--job")
+    system_file = get_config_file(cmd_args,"system","--system")
+    photoz_config_fname = get_config_file(cmd_args,"config","--config")
+    catalog_template = get_config_file(cmd_args,"template_cat",
+                                       "--template_cat")
+
+    ic_id = cmd_args.model_id
+    photoz_name = cmd_args.id
+    setup(photoz_name,system_file, job_file, catalog_template,
+          input_template, start, stop, photoz_config_fname, ic_id)
 
 
 
@@ -152,10 +211,17 @@ parser.add_argument("--stop", dest = "stop", action = "store",
                     help = ("Specify the minimum index to use for formatting "
                             "the templates ( (--stop - 1) gives the final "
                             "index used to format a template)."))
+parser.add_argument("-m","--model_id", dest = "model_id", required = True,
+                    help = ('Supplies a file which contains the ic of '
+                            'the planes to use for raytracing, in the form '
+                            '"cosmo_id|geometry_id". '
+                            'E.g: Om0.260_Ol0.740_w-1.000_si0.800|512b260'))
 
 
 if __name__ == '__main__':
-    #write_catalog_configuration("catalog.ini","test_cat.ini","posConstBias")
+    cmd_args = parser.parse_args()
+    driver(cmd_args)
+    """
     job_handler = ParsedHandler.read("../../lensanalysis/sample_config/"
                                      "utility_config/stampede2.ini")
     write_pos_file_builder_slurm_script('build_pos_files.sh',
@@ -167,3 +233,10 @@ if __name__ == '__main__':
                                         ('../../lensanalysis/sample_config/'
                                          'photoz_config.ini'),
                                         'constPosBias')
+
+    write_raytrace_script(os.path.abspath("ray.sh"),
+                          ('../../lensanalysis/sample_config/'
+                           'utility_config/setup_photoz_job.ini'),
+                          job_handler,
+                          'Om0.260_Ol0.740_w-1.000_si0.800|512b260')
+    """
