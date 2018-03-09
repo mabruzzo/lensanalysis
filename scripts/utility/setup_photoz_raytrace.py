@@ -30,6 +30,8 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
                                         input_template,start,stop,
                                         photoz_config_fname,
                                         photoz_name):
+    raise RuntimeError("MAKE SURE THE OUTPUT LOGS GET PLACED IN THE SAME "
+                       "DIRECTORY AS THE ONE WHERE EVERYTHING IS SAVED")
     script_filename = path
 
     job_settings = JobSettings.read(job_file, "PosFileBuilding")
@@ -64,6 +66,8 @@ def write_raytrace_script(path,job_file,job_handler,ic_id):
     This is basically a modified version of the writeRaySubmission bound 
     method defined in the SimulationBatch class of LensTools
     """
+    raise RuntimeError("MAKE SURE THE OUTPUT LOGS GET PLACED IN THE SAME "
+                       "DIRECTORY AS THE ONE WHERE EVERYTHING IS SAVED")
     script_filename = path
     job_settings = JobSettings.read(job_file, "RayTracing")
 
@@ -96,6 +100,7 @@ def write_raytrace_script(path,job_file,job_handler,ic_id):
                                                 ic_id))
     with self.syshandler.open(script_filename,"w") as scriptfile:
         scriptfile.write(job_handler.writePreamble(job_settings))
+        scriptfile.write("cd {:s}\n".format(working_dir))
         scriptfile.write(job_handler.writeExecution([executable],
                                                     job_settings.num_cores,
                                                     job_settings))
