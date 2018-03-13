@@ -44,6 +44,24 @@ def _load_indiv_bin_vals(config, section, option, num_bins, val_type = int):
                           "option.").format(num_bins,option))
     return vals
 
+def _normalize_sigma_condition_checking(config,tomo=False):
+    if tomo:
+        option_name = "tomo_sigma"
+    else:
+        option_name = "normal_sigma"
+    if not config.has_option("PeakCountBins",option_name):
+        return None
+
+    if tomo:
+        if config.getfloat("PeakCountBins","normal_sigma") != 0:
+            raise ValueError("since 'sigma_indiv_map' is True, 'normal_sigma' "
+                             "must be False")
+    else:
+        tomo_sigma = config.getfloat_list("PeakCountBins","tomo_sigma")
+        if len(tomo_sigma) !=1 or tomo_sigma[0] != 0:
+            raise ValueError("tomo_sigma must be set to a single value of 0 if "
+                             "tomo_sigma_indiv_map is True")
+
 class ProcedureConfig(object):
     """
     We should probably break this up into individual objects that tracks 
@@ -56,6 +74,23 @@ class ProcedureConfig(object):
 
     def has_peak_count_bins(self):
         return self._config.has_section("PeakCountBins")
+
+    def sigma_indiv_map(self,tomo=False):
+        """
+        Whether standard deviation for SNR in peak counting is computed from 
+        each individual bin. Default is False.
+        """
+        if tomo:
+            option_name = 'tomo_sigma_indiv_map'
+        else:
+            option_name = 'sigma_indiv_map'
+        if self._config.has_option("PeakCountBins",option_name):
+            
+            out = self._config.getboolean("PeakCountBins", option_name)
+            if out:
+                _normalize_sigma_condition_checking(self._config,tomo=tomo)
+            return out
+        return False
 
     def peak_count_bins(self, num_bins):
         if (self._config.has_option("PeakCountBins","bin_fname")
@@ -70,6 +105,8 @@ class ProcedureConfig(object):
                                                      "normal_sigma")
                 if normal_sigma == 0:
                     normal_sigma = 1.
+                # implicitly checks if values are okay
+                val = self.sigma_indiv_map(tomo=False):
                 assert normal_sigma>0
             else:
                 normal_sigma = 1.
@@ -99,6 +136,10 @@ class ProcedureConfig(object):
                                "bins or {:d} different "
                                "values.").format(num_bins,num_bins)
                 raise ValueError(message)
+
+            # implicitly checks that values are allowed
+            sigma_indiv_map = self.sigma_indiv_map(tomo=True):
+            
 
             for i in range(len(tomo_sigma)):
                 if tomo_sigma[i] == 0:

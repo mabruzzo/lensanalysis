@@ -9,7 +9,17 @@ from ..misc.feature_object import PeakLocations
 class LocatePeaks(ConversionProcedureStep):
     """
     Locates the peaks of the convergence map.
+
+    Parameters
+    ----------
+    norm : boolean
+        Indicates if the peak counts should be normalized by the standard 
+        deviation of the map (effectively causes the peak heights to be SNR 
+        where sigma is unique to each map).
     """
+
+    def __init__(self,norm = False):
+        self.norm = norm
 
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Locating peaks for realization "
@@ -17,7 +27,7 @@ class LocatePeaks(ConversionProcedureStep):
         out = []
         for elem in data_object:
             extent = [np.nanmin(elem.data), np.nanmax(elem.data)]
-            heights,positions = elem.locatePeaks(extent)
+            heights,positions = elem.locatePeaks(extent,norm=self.norm)
             out.append(PeakLocations(heights = heights, locations = positions))
         return out
 

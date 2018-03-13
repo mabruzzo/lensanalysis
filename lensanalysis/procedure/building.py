@@ -91,7 +91,8 @@ def build_peak_counting(begin, procedure_config, storage_collection,
     else:
         second_step = None
 
-    step = LocatePeaks()
+    normalize_sigma = procedure_config.sigma_indiv_map(tomo=tomo)
+    step = LocatePeaks(norm=normalize_sigma)
 
     if save_peak_loc:
         save_step = SaveCollectionEntries(peak_loc_storage)
@@ -118,7 +119,7 @@ def build_smooth_noisy_convergence(begin, procedure_config, storage_collection,
     else:
         ots_conv = objects_to_save.conv_map
         conv_map_storage = storage_collection.conv_map
-    
+
     if feature_step is None and not ots_conv.smoothed_noisy_map:
         return None
 
