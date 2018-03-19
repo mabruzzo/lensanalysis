@@ -26,7 +26,12 @@ class LocatePeaks(ConversionProcedureStep):
                             "{:d}").format(packet.data_id))
         out = []
         for elem in data_object:
-            extent = [np.nanmin(elem.data), np.nanmax(elem.data)]
+            #extent = [np.nanmin(elem.data), np.nextafter(np.nanmax(elem.data),
+            #                                             np.inf)]
+            # if norm is self.norm is True, then I am fairly confident that 
+            # during the c backend call, the extent values that we use are not 
+            # mulitiplied by the standard deviation.
+            extent = [-np.inf,np.inf]
             heights,positions = elem.locatePeaks(extent,norm=self.norm)
             out.append(PeakLocations(heights = heights, locations = positions))
         return out
