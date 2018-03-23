@@ -106,7 +106,7 @@ class ProcedureConfig(object):
                 if normal_sigma == 0:
                     normal_sigma = 1.
                 # implicitly checks if values are okay
-                val = self.sigma_indiv_map(tomo=False):
+                val = self.sigma_indiv_map(tomo=False)
                 assert normal_sigma>0
             else:
                 normal_sigma = 1.
@@ -138,7 +138,7 @@ class ProcedureConfig(object):
                 raise ValueError(message)
 
             # implicitly checks that values are allowed
-            sigma_indiv_map = self.sigma_indiv_map(tomo=True):
+            sigma_indiv_map = self.sigma_indiv_map(tomo=True)
             
 
             for i in range(len(tomo_sigma)):

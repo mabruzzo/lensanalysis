@@ -88,8 +88,12 @@ def collector(fname, loader, start, stop, average = False, tomo = True,
         temp = []
 
     for i in xrange(start,stop):
-        peak_count_col = loader.load(i)
-
+        try:
+            peak_count_col = loader.load(i)
+        except ValueError:
+            print "Error occured for realization {:d}".format(i)
+            print "Was supposed to be saved in: {:s}".format(fname)
+            raise 
         if tomo:
             for j,peak_counts in enumerate(peak_count_col):
                 # check to make sure we get the right shape
