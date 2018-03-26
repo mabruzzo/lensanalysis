@@ -4,6 +4,7 @@ import numpy as np
 import astropy.table as tbl
 
 from lenstools.utils.algorithms import step
+from lenstools.catalog import ShearCatalog
 
 from .procedure import IntermediateProcedureStep
 from ..misc.log import logprocedure
@@ -110,6 +111,36 @@ def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
 
     return out
 
+def _construct_rebinned_columns(data_object,colnames,output_bin_lengths,
+                                new_bin_source_loc,
+                                share_position_component,
+                                shared_columns = [], build_cat = True):
+    out = []
+
+    for i,(length,loc_iterable) in enumerate(zip(output_bin_lengths,
+                                                 new_bin_source_loc)):
+        cols = []
+        names = []
+        if share_position_component:
+            shared_col = shared_columns[i]
+            for colname,val in shared_col.iteritems():
+                cols.append(cols)
+                names.append(colname)
+
+        temp_cols = [np.zeros((length,)) for elem in colnames]
+
+        for input_bin_index, indices, start, stop in loc_iterable:
+            input_cat = data_object[input_bin_ind]
+            for temp_col, colname in zip(temp_cols,colnames):
+                temp_col[start:stop] = input_cat[colname][indices]
+        if build_cat:
+            result = ShearCat(cols + temp_cols,
+                              names = tuple(names + colnames))
+        else:
+            result = cols+temp_cols
+        out.append(result)
+    return out
+
 class StaticRebinner(object):
     """
     This object handles Rebinning if it does not change between realizations.
@@ -123,17 +154,14 @@ class StaticRebinner(object):
         outer iterable is also an iterable, (let's call it the location 
         iterable) that detail the origins of the data for a different output 
         tomographic bin. Elements of a given location iterable are themselves 
-        3-element tuples (or any sequence of 3 elements). Each tuple describes 
+        4-element tuples (or any sequence of 4 elements). Each tuple describes 
         which elements of a particular output bin are part of the given output 
         bin. Specifically, the first entry gives the index of one of the input 
         bins, the second element gives the locations of the input bin to be 
-        included in the output bin, and the third element gives the number of 
-        elements that this input bin contributes to the output bin. The second 
-        element can be any argument that an Astropy Column object will except 
-        as indexes.
-    column_data : sequence of (colname,dtype)
-        Sequence of tuples listing the column name and np.dtype for each of the 
-        columns to be included in the catalogs of each new bins.
+        included in the output bin, and the third and fourth elements give the 
+        start and stops of slice of the output bin table where the elements 
+        that this input bin contributes to are placed. the output bin. The 
+        second element is an array of indexes.
     new_bin_cat_lengths : sequence of positive integers
         The lengths of each of the new bins. This must be the same length as 
         new_bin_source_loc
@@ -144,17 +172,41 @@ class StaticRebinner(object):
         save time and memory, any modifications to this data would affect 
         future realizations)
     """
-    def __init__(self,new_bin_source_loc,column_data, new_bin_cat_lengths,
+    def __init__(self,new_bin_source_loc, new_bin_cat_lengths,
                  share_position_component=True):
-        pass
+        self.new_bin_source_loc = new_bin_soruce_loc
+        self.share_position_component = share_position_component
+        self.output_bin_lengths = new_bin_cat_lengths
+        self.column_index_map_col = None
+        self.shared_columns = None
 
     def rebin(self, data_object, map_id):
-        pass
 
-    @classmethod
-    def from_old_bin_source_loc(cls, old_bin_source_loc, colnames=None,
-                                share_position_component=None):
-        pass
+        raise RuntimeError('"shear1" and "shear2" are not correct names')
+        copy_input_cols = ["shear1","shear2","x","y","z"]
+
+        if self.share_position_component:
+            if self.shared_columns is None:
+                shared_colnames = copy_input_cols[2:]
+                temp = _construct_rebinned_columns(data_object,shared_colnames,
+                                                   self.output_bin_lengths,
+                                                   self.new_bin_source_loc,
+                                                   False, [], build_cat = False)
+                self.shared_columns = []
+                for col_l in temp:
+                    col_dict = {}
+                    for colname,col_val in zip(shared_colnames,col_l):
+                        col_dict[colname] = tbl.Column(col_val, name = col_name)
+                    self.shared_columns.append(col_dict)
+
+            copy_input_cols = copy_input_cols[:2]
+
+        return _construct_rebinned_columns(data_object,copy_input_cols,
+                                           self.output_bin_lengths,
+                                           self.new_bin_source_loc,
+                                           self.share_position_component,
+                                           self.shared_columns,
+                                           build_cat = True)
 
 class DynamicRebinner(object):
     """
@@ -346,6 +398,63 @@ class ShearCatRebinning(IntermediateProcedureStep):
         self.rebinner = rebinner
 
     def intermediate_operation(self,data_object,packet):
+        if self.rebinner is None:
+            return data_object
+        else:
+            return self.rebinner.rebin(data_object,packet.data_id)
+
+
+def _build_rebinner(data_object, rebin_z_intervals,share_position_component):
+    """
+    Very straightforward non-general implementation. This is not the most 
+    efficient way to do this.
+    """
+
+    rebinned_lengths = []
+    new_bin_source_loc = []
+
+    for i,(zstart,zstop) in enumerate(rebin_z_intervals):
+        loc_iterable = []
+        stop = 0
+        for j,cat in enumerate(data_object):
+            start = stop
+            indices = np.where(np.logical_and(cat["z"]>=zstart,cat["z"]<zstop))
+            stop = np.alen(indices) + start
+            if stop!=start:
+                loc_iterable.append(j,indices,start,stop)
+        if len(loc_iterable) == 0:
+            raise ValueError(("New tomographic bin {:d} contains 0 "
+                              "elements").format(i))
+        rebinned_lengths.append(stop)
+        new_bin_source_loc.append(loc_iterable)
+    return StaticRebinner(new_bin_source_loc, rebinned_lengths,
+                          share_position_component)
+            
+class LazyStaticShearCatRebinning(IntermediateProcedureStep):
+    """
+    This step is used for rebinning the shear catalogs when all of the shear 
+    catalogs are rebinned in the same way.
+
+    This current implementation leaves a lot to be desired, but basically it 
+    assumes you are using StaticRebinner.
+    """
+    
+    def __init__(self, rebinned_z_intervals, share_position_component):
+        self.rebinner = None
+        self.rebinned_z_intervals = rebinned_z_intervals
+        self.share_position_component = share_position_component
+        self.build_attempted = False
+
+    def _build_rebinner(self,data_object):
+        self.build_attempted = True
+        self.rebinner = _build_rebinner(data_object,
+                                        self.rebin_z_intervals,
+                                        self.share_position_component)
+        
+    def intermediate_operation(self,data_object,packet):
+        if self.rebinner is None and not self.build_attempted:
+            self._build_rebinner(data_object)
+
         if self.rebinner is None:
             return data_object
         else:
