@@ -126,6 +126,10 @@ class SpecificBinsPPZRebinnerConstantBiasTestCase(unittest.TestCase):
                                                    [2],[0]))
         self.assertTrue(len(result[2]) == 1)
 
+class StaticRebinnerTestCase(unittest.TestCase):
+    def test_basic_catalog(self):
+        pass
+
 def suite():
     tests = ['test_basic_catalog','test_overflow_basic_catalog',
              'test_between_intervals_more_bins',
