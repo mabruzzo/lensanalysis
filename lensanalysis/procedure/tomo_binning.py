@@ -128,14 +128,13 @@ def _construct_rebinned_columns(data_object,colnames,output_bin_lengths,
                 names.append(colname)
 
         temp_cols = [np.zeros((length,)) for elem in colnames]
-
         for input_bin_index, indices, start, stop in loc_iterable:
-            input_cat = data_object[input_bin_ind]
+            input_cat = data_object[input_bin_index]
             for temp_col, colname in zip(temp_cols,colnames):
                 temp_col[start:stop] = input_cat[colname][indices]
         if build_cat:
-            result = ShearCat(cols + temp_cols,
-                              names = tuple(names + colnames))
+            result = ShearCatalog(cols + temp_cols,
+                                  names = tuple(names + colnames))
         else:
             result = cols+temp_cols
         out.append(result)
@@ -174,15 +173,14 @@ class StaticRebinner(object):
     """
     def __init__(self,new_bin_source_loc, new_bin_cat_lengths,
                  share_position_component=True):
-        self.new_bin_source_loc = new_bin_soruce_loc
+        self.new_bin_source_loc = new_bin_source_loc
         self.share_position_component = share_position_component
         self.output_bin_lengths = new_bin_cat_lengths
-        self.column_index_map_col = None
         self.shared_columns = None
 
     def rebin(self, data_object, map_id):
 
-        raise RuntimeError('"shear1" and "shear2" are not correct names')
+        #raise RuntimeError('"shear1" and "shear2" are not correct names')
         copy_input_cols = ["shear1","shear2","x","y","z"]
 
         if self.share_position_component:
@@ -208,6 +206,33 @@ class StaticRebinner(object):
                                            self.shared_columns,
                                            build_cat = True)
 
+def build_static_z_rebinner(data_object, rebin_z_intervals,
+                            share_position_component):
+    """
+    Very straightforward non-general implementation. This is not the most 
+    efficient way to do this.
+    """
+
+    rebinned_lengths = []
+    new_bin_source_loc = []
+
+    for i,(zstart,zstop) in enumerate(rebin_z_intervals):
+        loc_iterable = []
+        stop = 0
+        for j,cat in enumerate(data_object):
+            start = stop
+            indices = np.where(np.logical_and(cat["z"]>=zstart,cat["z"]<zstop))
+            stop = np.alen(indices[0]) + start
+            if stop!=start:
+                loc_iterable.append((j,indices,start,stop))
+        if len(loc_iterable) == 0:
+            raise ValueError(("New tomographic bin {:d} contains 0 "
+                              "elements").format(i))
+        rebinned_lengths.append(stop)
+        new_bin_source_loc.append(loc_iterable)
+    return StaticRebinner(new_bin_source_loc, rebinned_lengths,
+                          share_position_component)
+    
 class DynamicRebinner(object):
     """
     This object handles rebinning that can change between realization.
@@ -402,33 +427,6 @@ class ShearCatRebinning(IntermediateProcedureStep):
             return data_object
         else:
             return self.rebinner.rebin(data_object,packet.data_id)
-
-
-def _build_rebinner(data_object, rebin_z_intervals,share_position_component):
-    """
-    Very straightforward non-general implementation. This is not the most 
-    efficient way to do this.
-    """
-
-    rebinned_lengths = []
-    new_bin_source_loc = []
-
-    for i,(zstart,zstop) in enumerate(rebin_z_intervals):
-        loc_iterable = []
-        stop = 0
-        for j,cat in enumerate(data_object):
-            start = stop
-            indices = np.where(np.logical_and(cat["z"]>=zstart,cat["z"]<zstop))
-            stop = np.alen(indices) + start
-            if stop!=start:
-                loc_iterable.append(j,indices,start,stop)
-        if len(loc_iterable) == 0:
-            raise ValueError(("New tomographic bin {:d} contains 0 "
-                              "elements").format(i))
-        rebinned_lengths.append(stop)
-        new_bin_source_loc.append(loc_iterable)
-    return StaticRebinner(new_bin_source_loc, rebinned_lengths,
-                          share_position_component)
             
 class LazyStaticShearCatRebinning(IntermediateProcedureStep):
     """
@@ -447,9 +445,9 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
 
     def _build_rebinner(self,data_object):
         self.build_attempted = True
-        self.rebinner = _build_rebinner(data_object,
-                                        self.rebin_z_intervals,
-                                        self.share_position_component)
+        self.rebinner = build_static_z_rebinner(data_object,
+                                                self.rebin_z_intervals,
+                                                self.share_position_component)
         
     def intermediate_operation(self,data_object,packet):
         if self.rebinner is None and not self.build_attempted:

@@ -5,7 +5,7 @@ import numpy as np
 from lenstools.catalog import ShearCatalog
 
 from lensanalysis.procedure.tomo_binning import PseudoPhotozRebinner, \
-    ConstantBias
+    ConstantBias, build_static_z_rebinner
 
 def _build_simple_catalogs(z_arrays,seed=None):
     np.random.seed(seed)
@@ -125,17 +125,63 @@ class SpecificBinsPPZRebinnerConstantBiasTestCase(unittest.TestCase):
         self.assertTrue(_compare_nonz_catalog_rows(temp[1],result[2],
                                                    [2],[0]))
         self.assertTrue(len(result[2]) == 1)
-
+        
 class StaticRebinnerTestCase(unittest.TestCase):
-    def test_basic_catalog(self):
+    def test_subdivide_rebin(self):
+        # going to start with 2 catalogs and wind up with 4 catalogs
+        z_arrays = [[0.25,0.356,0.536,0.8536],
+                    [1.163,1.325,1.634,1.934]]
+        rebin_z_intervals = [(0.,0.52),(0.52,1.1),(1.1,1.45),(1.45,2.0)]
+
+        data_object = _build_simple_catalogs(z_arrays,seed=55)
+        rebinner = build_static_z_rebinner(data_object, rebin_z_intervals,
+                                           share_position_component = False)
+
+        rebinned_do = rebinner.rebin(data_object,0)
+        #cat2 = _build_simple_catalogs(z_arrays,seed=55)
+
+        for i in [0,1]:
+            # first 2 rows of original ith cat should be both rows in the
+            # rebinned (2*i)th cat 
+            self.assertTrue(_compare_nonz_catalog_rows(data_object[i],
+                                                       rebinned_do[2*i],
+                                                       [0,1],[0,1]))
+            self.assertTrue(len(rebinned_do[2*i]) == 2)
+            # second 2 rows of original ith cat should be both rows in the
+            # rebinned (2*i+1)th cat
+            self.assertTrue(_compare_nonz_catalog_rows(data_object[i],
+                                                       rebinned_do[2*i+1],
+                                                       [2,3],[0,1]))
+            self.assertTrue(len(rebinned_do[2*i+1]) == 2)
+
+    def test_subdivide_rebin_shared_col(self):
+        # going to start with 2 catalogs and wind up with 4 catalogs
+        z_arrays = [[0.25,0.356,0.536,0.8536],
+                    [1.163,1.325,1.634,1.934]]
+        rebin_z_intervals = [(0.,0.52),(0.52,1.1),(1.1,1.45),(1.45,2.0)]
+
+        data_object = _build_simple_catalogs(z_arrays,seed=55)
+        rebinner = build_static_z_rebinner(data_object, rebin_z_intervals,
+                                           share_position_component = True)
+
+        rebinned_do = rebinner.rebin(data_object,0)
+        data_object2 = _build_simple_catalogs(z_arrays,seed=59)
+
         pass
+        
 
 def suite():
     tests = ['test_basic_catalog','test_overflow_basic_catalog',
              'test_between_intervals_more_bins',
              'test_overflow_more_bins']
     test_case_class = SpecificBinsPPZRebinnerTestCase
-    return unittest.TestSuite(map(test_case_class, tests))
+    s = unittest.TestSuite()
+    s.addTests(map(test_case_class, tests))
+
+    tests = ['test_subdivide_rebin','test_subdivide_rebin_shared_col']
+    test_case_class = StaticRebinnerTestCase
+    s.addTests(map(test_case_class, tests))
+    return s
 
 if __name__ == '__main__':
     unittest.main()
