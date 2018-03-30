@@ -6,7 +6,8 @@ from .peak_counting import LocatePeaks, BinPeaks
 from .procedure import CompositeProcedureStep
 from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
-from .tomo_binning import PseudoPhotozRebinner, ShearCatRebinning
+from .tomo_binning import PseudoPhotozRebinner, ShearCatRebinning, \
+    LazyStaticShearCatRebinning
 from ..misc.analysis_collection import default_value_UAPC
 from ..misc.enum_definitions import Descriptor
 
@@ -192,34 +193,45 @@ def build_rebinning(begin, procedure_config, storage_collection,
     Constructs the steps to rebin the Shear Catalog.
     """
     if procedure_config.has_non_ppz_rebinning():
+        if ppz_noise is not None:
+            raise RuntimeError("Not presently equipped to handle rebinning and "
+                               "pseudo photoz errors simultaneously.")
+
+        # first lets get the bin limits
+        num_bins,bin_intervals = procedure_config.get_bin_limits()
+        if bin_intervals is None:
+            raise ValueError("Need the specific bin_intervals for rebinning.")
         raise NotImplementedError("Not presently equipped to handle actual "
                                   "rebinning.")
-    if ppz_noise is None:
-        return following_sequential_step
-
-    # first lets get values to build the rebinner - checks for the bin limits
-    temp = procedure_config.get_bin_limits()
-    if temp is None or temp[0] is None:
-        # in this case, the bin_intervals are provided
-        num_bins,bin_intervals = procedure_config.get_bin_limits()
-        if num_bins != num_tomo_bins:
-            raise ValueError("For PseudoPhotoz using the original bins,\n"
-                             "the num_bins option of the Rebinning section of\n"
-                             "the Procedure Configuration file must be -1\n"
-                             "(unspecified) or match the value of the\n"
-                             "num_tomo_bins option in the General section of\n"
-                             "the storage configuration file.")
-        kwargs = {}
     else:
-        # in this case the bin_intervals are not provided. Therefore, we need
-        # to check for guidelines to help determine the bin intervals
-        bin_intervals = None
-        kwargs = procedure_config.input_bin_lim_guidelines()
-    # now let's construct the rebinner.
-    rebinner = PseudoPhotozRebinner(ppz_noise, bin_intervals = bin_intervals,
-                                    colname='z', **kwargs)
+        if ppz_noise is None:
+            return following_sequential_step
+
+        # first lets get values to build the rebinner - checks for the bin
+        # limits
+        temp = procedure_config.get_bin_limits()
+        if temp is None or temp[0] is None:
+            # in this case, the bin_intervals are provided
+            num_bins,bin_intervals = procedure_config.get_bin_limits()
+            if num_bins != num_tomo_bins:
+                raise ValueError("For PseudoPhotoz using the original bins,\n"
+                                 "the num_bins option of the Rebinning section "
+                                 "of\nthe Procedure Configuration file must be "
+                                 "-1\n(unspecified) or match the value of the\n"
+                                 "num_tomo_bins option in the General section "
+                                 "of\nthe storage configuration file.")
+            kwargs = {}
+        else:
+            # in this case the bin_intervals are not provided. Therefore, we
+            # need to check for guidelines to help determine the bin intervals
+            bin_intervals = None
+            kwargs = procedure_config.input_bin_lim_guidelines()
+            # now let's construct the rebinner.
+        rebinner = PseudoPhotozRebinner(ppz_noise,
+                                        bin_intervals = bin_intervals,
+                                        colname='z', **kwargs)
     
-    next_step = ShearCatRebinning(rebinner)
+        next_step = ShearCatRebinning(rebinner)
     next_step.wrapped_step = following_sequential_step
     return next_step
 

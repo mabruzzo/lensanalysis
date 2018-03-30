@@ -438,6 +438,8 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
     """
     
     def __init__(self, rebinned_z_intervals, share_position_component):
+        raise RuntimeError("Need to come up with a way to use a separate "
+                           "Position Catalog.")
         self.rebinner = None
         self.rebinned_z_intervals = rebinned_z_intervals
         self.share_position_component = share_position_component

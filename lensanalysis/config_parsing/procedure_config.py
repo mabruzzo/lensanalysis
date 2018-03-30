@@ -1,9 +1,12 @@
 import ConfigParser
+import os.path
 
 import numpy as np
 from astropy import units as u
 
 from lensanalysis.misc.name_parser import SafeNameParser
+from lensanalysis.misc.cosmo_config import get_abs_paths
+from lensanalysis.misc.fname_formatter import BaseFnameFormatter
 
 
 def _get_uniform_type_list(self, section,option,converter):
@@ -62,15 +65,25 @@ def _normalize_sigma_condition_checking(config,tomo=False):
             raise ValueError("tomo_sigma must be set to a single value of 0 if "
                              "tomo_sigma_indiv_map is True")
 
+def check_num_fields(template):
+    iterable = Formatter().parse(template)
+
+    num = 0
+    for _, field_name, format_spec, _ in iterable:
+        if field_name is not None:
+            num +=1
+    return num
+
 class ProcedureConfig(object):
     """
     We should probably break this up into individual objects that tracks 
     configuration of different tasks.
     """
 
-    def __init__(self,procedure_config):
+    def __init__(self,procedure_config,config_fname):
         assert isinstance(procedure_config,SequentialArgConfigParser)
         self._config = procedure_config
+        self._config_fname = config_fname
 
     def has_peak_count_bins(self):
         return self._config.has_section("PeakCountBins")
@@ -241,7 +254,6 @@ class ProcedureConfig(object):
                              "angles are measured")
         return value*unit
 
-
     def get_default_saved_products(self):
 
         parser = SafeNameParser()
@@ -259,7 +271,7 @@ class ProcedureConfig(object):
     def from_fname(cls,fname):
         config_parser = SequentialArgConfigParser()
         config_parser.read(fname)
-        return cls(config_parser)
+        return cls(config_parser,fname)
 
     def has_non_ppz_rebinning(self):
         """
@@ -270,11 +282,6 @@ class ProcedureConfig(object):
         photoz, not their z_spec) this returns False.
         """
         result = self._config.getboolean("Rebinning","rebin")
-
-        if result:
-            raise NotImplementedError("Not presently equipped to handle "
-                                      "rebinning. For now the rebin\noption "
-                                      "must be set to False.")
         return result
     
     def get_bin_limits(self):
@@ -376,3 +383,41 @@ class ProcedureConfig(object):
         else:
             return out
         
+
+    def get_z_binning_cat(self):
+        """
+        If applicable, this returns the directory where position Catalogs are 
+        saved and the FnameFormatter for the actual file name of the position 
+        catalog.
+
+        These position catalogs are used exclusively for rebinning.
+        """
+
+        template = self._config.get("Rebinning",z_binning_cat_fname_template)
+
+        if template == "":
+            return None,None
+
+        # compute the number of fields in temp
+        iterable = Formatter().parse(template)
+        num = 0
+        for _, field_name, format_spec, _ in iterable:
+            if field_name is not None:
+                num +=1
+
+        fields = []
+        if num>1:
+            raise ValueError("The z_binning_cat_fname_template option can only "
+                             "have 0 or 1 fields")
+        elif num == 1:
+            fields.append("bin")
+        fname_formatter = BaseFnameFormatter(template,fields)
+
+        temp = self._config.get("Rebinning","z_binning_cat_dirname")
+        if temp == "":
+            return None,fname_formatter
+
+        path = get_abs_paths(self._config,
+                             [("Rebinning","z_binning_cat_dirname")],
+                             os.path.abspath(self._config_fname))[0]
+        return path,fname_formatter

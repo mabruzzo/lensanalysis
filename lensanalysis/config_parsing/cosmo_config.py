@@ -9,6 +9,8 @@ from .photoz_config import PseudoPhotozConfig
 from ..misc.analysis_collection import UniformAnalysisProductCollection
 from ..misc.enum_definitions import Descriptor
 
+
+
 def _load_single_storage_collection(path, storage_config_method, descriptions,
                                     tomo_descriptor = False):
     """
@@ -358,8 +360,8 @@ class FiducialStorageCollection(CosmologyAnalysisCollection):
             raise ValueError("No fid_name has been specified for "
                              "{:s}".format(name))
         return self.get_shear_cat_loader(fid_name)
-
-def _get_abs_paths(config,section_option_l,config_file_path):
+    
+def get_abs_paths(config,section_option_l,config_file_path):
     """
     Gets absolute paths from a Configuration File.
     """
@@ -382,7 +384,7 @@ def _get_abs_paths(config,section_option_l,config_file_path):
     return out
 
 def _get_cosmo_config_paths(config, config_file_path, section_option_l):
-    paths = _get_abs_paths(config,section_option_l,config_file_path)
+    paths = get_abs_paths(config,section_option_l,config_file_path)
     sections,options = zip(*section_option_l)
     dict_entries = zip(options,paths)
     return dict(dict_entries)
