@@ -198,11 +198,20 @@ def build_rebinning(begin, procedure_config, storage_collection,
                                "pseudo photoz errors simultaneously.")
 
         # first lets get the bin limits
-        num_bins,bin_intervals = procedure_config.get_bin_limits()
+        num_bins,rebinned_z_intervals = procedure_config.get_bin_limits()
         if bin_intervals is None:
             raise ValueError("Need the specific bin_intervals for rebinning.")
-        raise NotImplementedError("Not presently equipped to handle actual "
-                                  "rebinning.")
+
+        # check for possible specification of a separate z catalog for
+        # identifying mapping galaxies to the result tomography bin.
+        temp = procedure_config.get_z_binning_cat()
+        z_binning_cat_fname_formatter, z_binning_cat_root_dir = temp
+
+        #for now we assume share_position_component is True
+        next_step = LazyStaticShearCatRebinning(rebinned_z_intervals,
+                                                share_position_component,
+                                                z_binning_cat_fname_formatter,
+                                                z_binning_cat_root_dir)
     else:
         if ppz_noise is None:
             return following_sequential_step

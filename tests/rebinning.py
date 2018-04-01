@@ -125,50 +125,85 @@ class SpecificBinsPPZRebinnerConstantBiasTestCase(unittest.TestCase):
         self.assertTrue(_compare_nonz_catalog_rows(temp[1],result[2],
                                                    [2],[0]))
         self.assertTrue(len(result[2]) == 1)
+
+
+def _check_success_simple_subdivision(tc,data_object,rebinned_do):
+    for i in [0,1]:
+        print "TEST 3"
+        # first 2 rows of original ith cat should be both rows in the rebinned
+        # (2*i)th cat 
+        tc.assertTrue(_compare_nonz_catalog_rows(data_object[i],
+                                                 rebinned_do[2*i],[0,1],[0,1]))
+        print "TEST 4"
+        tc.assertTrue(len(rebinned_do[2*i]) == 2)
+        # second 2 rows of original ith cat should be both rows in the rebinned
+        # (2*i+1)th cat
+        print "TEST 5"
+        tc.assertTrue(_compare_nonz_catalog_rows(data_object[i],
+                                                 rebinned_do[2*i+1],
+                                                 [2,3],[0,1]))
+        print "TEST 6"
+        tc.assertTrue(len(rebinned_do[2*i+1]) == 2)
+        print "TEST 7"
+        
+def _test_subdivide_rebin_two_tables(tc, shared_col=False):
+    # going to start with 2 catalogs and wind up with 4 catalogs
+    z_arrays = [[0.25,0.356,0.536,0.8536],
+                [1.163,1.325,1.634,1.934]]
+    rebin_z_intervals = [(0.,0.52),(0.52,1.1),(1.1,1.45),(1.45,2.0)]
+
+    data_object = _build_simple_catalogs(z_arrays,seed=55)
+    rebinner = build_static_z_rebinner(data_object, rebin_z_intervals,
+                                       share_position_component = shared_col)
+
+    rebinned_do = rebinner.rebin(data_object,0)
+    data_object2 = _build_simple_catalogs(z_arrays,seed=59)
+    rebinned_do2 = rebinner.rebin(data_object,1)
+
+    # this exact test case was first checked in the test_subdivide_rebin bound
+    # method of StaticRebinnerTestCase for data_object. If data_object is not
+    # properly rebinned, it will be indicated by the failure of that method.
+    # Here, we will test that data_object2 is properly rebinned.
+    _check_success_simple_subdivision(tc,data_object2,rebinned_do2)
+
+    rebinned_do[0]["z"][0] +=0.5
+    if shared_col:
+        tc.assert_True(rebinned_do[0]["z"][0]==rebinned_do2[0]["z"][0])
+    else:
+        tc.assert_True(rebinned_do[0]["z"][0]!=rebinned_do2[0]["z"][0])
         
 class StaticRebinnerTestCase(unittest.TestCase):
+    
     def test_subdivide_rebin(self):
         # going to start with 2 catalogs and wind up with 4 catalogs
         z_arrays = [[0.25,0.356,0.536,0.8536],
                     [1.163,1.325,1.634,1.934]]
         rebin_z_intervals = [(0.,0.52),(0.52,1.1),(1.1,1.45),(1.45,2.0)]
-
         data_object = _build_simple_catalogs(z_arrays,seed=55)
         rebinner = build_static_z_rebinner(data_object, rebin_z_intervals,
                                            share_position_component = False)
 
         rebinned_do = rebinner.rebin(data_object,0)
         #cat2 = _build_simple_catalogs(z_arrays,seed=55)
-
         for i in [0,1]:
-            # first 2 rows of original ith cat should be both rows in the
-            # rebinned (2*i)th cat 
+            # first 2 rows of original ith cat should be both rows in the rebinned
+            # (2*i)th cat 
             self.assertTrue(_compare_nonz_catalog_rows(data_object[i],
-                                                       rebinned_do[2*i],
-                                                       [0,1],[0,1]))
+                                                       rebinned_do[2*i],[0,1],[0,1]))
             self.assertTrue(len(rebinned_do[2*i]) == 2)
-            # second 2 rows of original ith cat should be both rows in the
-            # rebinned (2*i+1)th cat
+            # second 2 rows of original ith cat should be both rows in the rebinned
+            # (2*i+1)th cat
             self.assertTrue(_compare_nonz_catalog_rows(data_object[i],
                                                        rebinned_do[2*i+1],
                                                        [2,3],[0,1]))
             self.assertTrue(len(rebinned_do[2*i+1]) == 2)
+        self.assertTrue(False)
 
     def test_subdivide_rebin_shared_col(self):
-        # going to start with 2 catalogs and wind up with 4 catalogs
-        z_arrays = [[0.25,0.356,0.536,0.8536],
-                    [1.163,1.325,1.634,1.934]]
-        rebin_z_intervals = [(0.,0.52),(0.52,1.1),(1.1,1.45),(1.45,2.0)]
+        _test_subdivide_rebin_two_tables(self, shared_col=True)
 
-        data_object = _build_simple_catalogs(z_arrays,seed=55)
-        rebinner = build_static_z_rebinner(data_object, rebin_z_intervals,
-                                           share_position_component = True)
-
-        rebinned_do = rebinner.rebin(data_object,0)
-        data_object2 = _build_simple_catalogs(z_arrays,seed=59)
-
-        pass
-        
+    def test_subdivide_rebin_unique_col(self):
+        _test_subdivide_rebin_two_tables(self, shared_col=False)
 
 def suite():
     tests = ['test_basic_catalog','test_overflow_basic_catalog',
@@ -178,9 +213,11 @@ def suite():
     s = unittest.TestSuite()
     s.addTests(map(test_case_class, tests))
 
-    tests = ['test_subdivide_rebin','test_subdivide_rebin_shared_col']
+    tests = ['test_subdivide_rebin',]#'test_subdivide_rebin_unique_col',
+    #         'test_subdivide_rebin_shared_col']
     test_case_class = StaticRebinnerTestCase
-    s.addTests(map(test_case_class, tests))
+    s.addTests(test_case_class, 'test_subdivide_rebin')
+    print "Test 8"
     return s
 
 if __name__ == '__main__':

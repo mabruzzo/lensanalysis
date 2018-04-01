@@ -393,7 +393,19 @@ class ProcedureConfig(object):
         These position catalogs are used exclusively for rebinning.
         """
 
-        template = self._config.get("Rebinning",z_binning_cat_fname_template)
+        if self._config.has_option("Rebinning","z_binning_cat_fname_template"):
+            if not self._config.has_option("Rebinning","z_binning_cat_dirname"):
+                raise ValueError("the z_binning_cat_fname_template cannot be a "
+                                 "specified option without specifying the "
+                                 "z_binning_cat_dirname option")
+        elif self._config.has_option("Rebinning","z_binning_cat_dirname"):
+            raise ValueError("the z_binning_cat_dirname cannot be a specified "
+                             "option without specifying the "
+                             "z_binning_cat_fname_template option")
+        else:
+            return None,None
+
+        template = self._config.get("Rebinning","z_binning_cat_fname_template")
 
         if template == "":
             return None,None
@@ -415,7 +427,7 @@ class ProcedureConfig(object):
 
         temp = self._config.get("Rebinning","z_binning_cat_dirname")
         if temp == "":
-            return None,fname_formatter
+            return os.path.dirname(self._config_fname),fname_formatter
 
         path = get_abs_paths(self._config,
                              [("Rebinning","z_binning_cat_dirname")],

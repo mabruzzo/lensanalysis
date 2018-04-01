@@ -1,12 +1,14 @@
 from operator import add
+import os.path
 
 import numpy as np
 import astropy.table as tbl
 
 from lenstools.utils.algorithms import step
-from lenstools.catalog import ShearCatalog
+from lenstools.catalog import ShearCatalog, Catalog
 
 from .procedure import IntermediateProcedureStep
+from ..misc.fname_formatter import AbstractFnameFormatter
 from ..misc.log import logprocedure
 
 
@@ -194,7 +196,7 @@ class StaticRebinner(object):
                 for col_l in temp:
                     col_dict = {}
                     for colname,col_val in zip(shared_colnames,col_l):
-                        col_dict[colname] = tbl.Column(col_val, name = col_name)
+                        col_dict[colname] = tbl.Column(col_val, name = colname)
                     self.shared_columns.append(col_dict)
 
             copy_input_cols = copy_input_cols[:2]
@@ -232,7 +234,7 @@ def build_static_z_rebinner(data_object, rebin_z_intervals,
         new_bin_source_loc.append(loc_iterable)
     return StaticRebinner(new_bin_source_loc, rebinned_lengths,
                           share_position_component)
-    
+
 class DynamicRebinner(object):
     """
     This object handles rebinning that can change between realization.
@@ -427,7 +429,27 @@ class ShearCatRebinning(IntermediateProcedureStep):
             return data_object
         else:
             return self.rebinner.rebin(data_object,packet.data_id)
-            
+
+def _load_z_binning_cats(data_object, z_binning_cat_fname_formatter,
+                         z_binning_cat_root_dir):
+    """
+    This is responsible for loading a position catalog that includes redshifts 
+    that will be used to determine which catalog entries should be rebinned.
+    """
+    num_fields = z_binning_cat_fname_formatter
+    if num_fields == 0:
+        assert len(data_object) == 0
+        fname = os.path.join(z_binning_cat_root_dir,
+                             z_binning_cat_fname_formatter.format_fname())
+        return [Catalog.read(fname)]
+    
+    out = []
+    for i in range(i,len(data_object)+1):
+        fname = os.path.join(z_binning_cat_root_dir,
+                             z_binning_cat_fname_formatter.format_fname(bin=i))
+        out.append(Catalog.read(fname))
+    return out
+        
 class LazyStaticShearCatRebinning(IntermediateProcedureStep):
     """
     This step is used for rebinning the shear catalogs when all of the shear 
@@ -435,22 +457,72 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
 
     This current implementation leaves a lot to be desired, but basically it 
     assumes you are using StaticRebinner.
+
+    Parameters
+    ----------
+    rebinned_z_intervals: List of tuples
+        List of tuples of new intervals to rebin the catalogs to. If not 
+        specified, then we will automatically use the same redshift intervals
+        as were used in the input catalog. The intervals are assumed to be 
+        monotonically increasing. Within a tuple representing an interval, 
+        the bin is assumed to be inclusive at the minimum value and exclusive 
+        at the maximum value.
+    share_position_component : bool
+        Whether or not the component of the catalog should be shared for 
+        different realizations (The underlying position and redshift data would 
+        be pointed to by catalogs of different realizations. While this would 
+        save time and memory, any modifications to this data would affect 
+        future realizations)
+    z_binning_cat_fname_formatter : FnameFormatter, optional
+        If the rebinning is to be defined using a specific redshift catalog, 
+        then this should be an instance fname_formatter for doing so. This 
+        instance should have 0 or 1 kwargs (the keyword would be "bin"). If 0 
+        keywords are used, then there must only be 1 input tomographic bin. 
+        If this is specified, then z_binning_cat_root_dir must be specified. 
+        If None is passed (default) then the redshifts of the very first Shear 
+        Catalog are used to identify the rebinning indices.
+    z_binning_cat_root_dir : str, optional
+        If the rebinning is to be defined using a specific redshift catalog, 
+        then this should specify the root directory in which the redshift 
+        catalog is stored. Either both z_binning_cat_fname_formatter and 
+        z_binning_cat_root_dir must be non-None or they must both be None.
     """
     
-    def __init__(self, rebinned_z_intervals, share_position_component):
+    def __init__(self, rebinned_z_intervals, share_position_component,
+                 z_binning_cat_fname_formatter=None,
+                 z_binning_cat_root_dir = None):
         raise RuntimeError("Need to come up with a way to use a separate "
                            "Position Catalog.")
         self.rebinner = None
         self.rebinned_z_intervals = rebinned_z_intervals
         self.share_position_component = share_position_component
         self.build_attempted = False
+        if ((z_binning_cat_fname_formatter is not None) and
+            (z_binning_cat_root_dir is not None)):
+            if not isinstance(z_binning_cat_fname_formatter,
+                              AbstractFnameFormatter):
+                raise ValueError("z_binning_cat_fname_formatter is not a "
+                                 "(virtual) subclass of AbstractFnameFormatter")
+            elif not os.path.isdir(z_binning_cat_root_dir):
+                raise ValueError(("the value passed to z_binning_cat_root_dir\n"
+                                  "{:s}\nis not an existing "
+                                  "directory.").format(z_binning_cat_root_dir))
+        self.z_binning_cat_fname_formatter = z_binning_cat_fname_formatter
+        self.z_binning_cat_root_dir = z_binning_cat_root_dir
 
     def _build_rebinner(self,data_object):
         self.build_attempted = True
-        self.rebinner = build_static_z_rebinner(data_object,
+
+        if self.z_binning_cat_fname_formatter is not None:
+            bin_cats = _load_z_binning_cats(data_object,
+                                            self.z_binning_cat_fname_formatter,
+                                            self.z_binning_cat_root_dir)
+        else:
+            bin_cats = data_object
+        self.rebinner = build_static_z_rebinner(bin_cats,
                                                 self.rebin_z_intervals,
                                                 self.share_position_component)
-        
+
     def intermediate_operation(self,data_object,packet):
         if self.rebinner is None and not self.build_attempted:
             self._build_rebinner(data_object)
