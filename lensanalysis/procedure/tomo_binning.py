@@ -393,7 +393,6 @@ class PseudoPhotozRebinner(DynamicRebinner):
                                            np.inf)
                 bin_intervals.append((min_val,max_val))
             self.bin_intervals = bin_intervals
-            print self.bin_intervals
 
         in_place = self.update_in_place
         for i,catalog in enumerate(data_object):
@@ -444,7 +443,7 @@ def _load_z_binning_cats(data_object, z_binning_cat_fname_formatter,
         return [Catalog.read(fname)]
     
     out = []
-    for i in range(i,len(data_object)+1):
+    for i in range(1,len(data_object)+1):
         fname = os.path.join(z_binning_cat_root_dir,
                              z_binning_cat_fname_formatter.format_fname(bin=i))
         out.append(Catalog.read(fname))
@@ -491,12 +490,15 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
     def __init__(self, rebinned_z_intervals, share_position_component,
                  z_binning_cat_fname_formatter=None,
                  z_binning_cat_root_dir = None):
-        raise RuntimeError("Need to come up with a way to use a separate "
-                           "Position Catalog.")
+
         self.rebinner = None
         self.rebinned_z_intervals = rebinned_z_intervals
         self.share_position_component = share_position_component
         self.build_attempted = False
+
+        print z_binning_cat_fname_formatter
+        print isinstance(z_binning_cat_fname_formatter,
+                              AbstractFnameFormatter)
         if ((z_binning_cat_fname_formatter is not None) and
             (z_binning_cat_root_dir is not None)):
             if not isinstance(z_binning_cat_fname_formatter,
@@ -520,7 +522,7 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
         else:
             bin_cats = data_object
         self.rebinner = build_static_z_rebinner(bin_cats,
-                                                self.rebin_z_intervals,
+                                                self.rebinned_z_intervals,
                                                 self.share_position_component)
 
     def intermediate_operation(self,data_object,packet):

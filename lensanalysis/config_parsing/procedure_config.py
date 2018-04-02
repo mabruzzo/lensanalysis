@@ -1,12 +1,14 @@
 import ConfigParser
 import os.path
+from string import Formatter
 
 import numpy as np
 from astropy import units as u
 
+from .cosmo_config import get_abs_paths
 from lensanalysis.misc.name_parser import SafeNameParser
-from lensanalysis.misc.cosmo_config import get_abs_paths
-from lensanalysis.misc.fname_formatter import BaseFnameFormatter
+from lensanalysis.misc.fname_formatter import BaseFnameFormatter, \
+    AbstractFnameFormatter
 
 
 def _get_uniform_type_list(self, section,option,converter):
@@ -321,7 +323,7 @@ class ProcedureConfig(object):
                 bin_lim = zip(vals[:-1],vals[1:])
             else:
                 bin_lim = zip(vals[::2],vals[1::2])
-            return num_bins,bin_limit
+            return num_bins,bin_lim
         return num_bins, None
 
     def input_bin_lim_guidelines(self):
@@ -424,6 +426,8 @@ class ProcedureConfig(object):
         elif num == 1:
             fields.append("bin")
         fname_formatter = BaseFnameFormatter(template,fields)
+        #print fname_formatter
+        #assert(isinstance(fname_formatter,AbstractFnameFormatter))
 
         temp = self._config.get("Rebinning","z_binning_cat_dirname")
         if temp == "":
@@ -432,4 +436,5 @@ class ProcedureConfig(object):
         path = get_abs_paths(self._config,
                              [("Rebinning","z_binning_cat_dirname")],
                              os.path.abspath(self._config_fname))[0]
+
         return path,fname_formatter

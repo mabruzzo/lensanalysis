@@ -192,6 +192,7 @@ def build_rebinning(begin, procedure_config, storage_collection,
     """
     Constructs the steps to rebin the Shear Catalog.
     """
+
     if procedure_config.has_non_ppz_rebinning():
         if ppz_noise is not None:
             raise RuntimeError("Not presently equipped to handle rebinning and "
@@ -199,19 +200,21 @@ def build_rebinning(begin, procedure_config, storage_collection,
 
         # first lets get the bin limits
         num_bins,rebinned_z_intervals = procedure_config.get_bin_limits()
-        if bin_intervals is None:
+        if rebinned_z_intervals is None:
             raise ValueError("Need the specific bin_intervals for rebinning.")
 
         # check for possible specification of a separate z catalog for
         # identifying mapping galaxies to the result tomography bin.
         temp = procedure_config.get_z_binning_cat()
-        z_binning_cat_fname_formatter, z_binning_cat_root_dir = temp
+        z_binning_cat_root_dir, z_binning_cat_fname_formatter = temp
 
         #for now we assume share_position_component is True
+        share_position_component = True
         next_step = LazyStaticShearCatRebinning(rebinned_z_intervals,
                                                 share_position_component,
                                                 z_binning_cat_fname_formatter,
                                                 z_binning_cat_root_dir)
+        print next_step
     else:
         if ppz_noise is None:
             return following_sequential_step
@@ -315,10 +318,11 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
         return None
     
     if begin_object == (Descriptor.none,"shear_cat"):
-        if ppz_noise is not None:
-            if not tomo:
-                raise ValueError("Cannot run pseudo photoz process with "
-                                 "non-tomographic dataset.")
+        if (ppz_noise is not None) and (not tomo):
+            raise ValueError("Cannot run pseudo photoz process with a "
+                             "non-tomographic dataset.")
+        if tomo and (ppz_noise is not None 
+                     or procedure_config.has_non_ppz_rebinning()):
             recent_step = build_rebinning(begin_object, procedure_config,
                                           storage_collection, objects_to_save,
                                           following_sequential_step=recent_step,
