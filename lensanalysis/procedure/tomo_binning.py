@@ -36,8 +36,6 @@ def _modified_rebin(catalog,intervals,field="z"):
     lenstools.catalog.Catalog. We use the exact same implementation except we 
     update the change which step function is called.
     """
-    #print catalog
-    #print intervals
     catalog_columns = catalog.colnames
 
     #Group by column interval
@@ -194,11 +192,15 @@ class StaticRebinner(object):
                 self.shared_tables = temp
             copy_input_cols = copy_input_cols[:2]
 
-        return _construct_rebinned_columns(data_object,copy_input_cols,
-                                           self.output_bin_lengths,
-                                           self.new_bin_source_loc,
-                                           self.share_position_component,
-                                           self.shared_tables)
+        out = _construct_rebinned_columns(data_object,copy_input_cols,
+                                          self.output_bin_lengths,
+                                          self.new_bin_source_loc,
+                                          self.share_position_component,
+                                          self.shared_tables)
+        #print [len(elem) for elem in out]
+        #print [np.amin(elem['z']) for elem in out]
+        #print [np.amax(elem['z']) for elem in out]
+        return out
 
 def build_static_z_rebinner(data_object, rebin_z_intervals,
                             share_position_component):
@@ -488,8 +490,6 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
         self.share_position_component = share_position_component
         self.build_attempted = False
 
-        print isinstance(z_binning_cat_fname_formatter,
-                              AbstractFnameFormatter)
         if ((z_binning_cat_fname_formatter is not None) and
             (z_binning_cat_root_dir is not None)):
             if not isinstance(z_binning_cat_fname_formatter,
