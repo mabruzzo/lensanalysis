@@ -116,29 +116,28 @@ def _lazy_rebinner(orig_tomo_bins,new_intervals,colname):
 def _construct_rebinned_columns(data_object,colnames,output_bin_lengths,
                                 new_bin_source_loc,
                                 share_position_component,
-                                shared_columns = [], build_cat = True):
+                                shared_table = None):
     out = []
 
     for i,(length,loc_iterable) in enumerate(zip(output_bin_lengths,
                                                  new_bin_source_loc)):
         cols = []
         names = []
-        if share_position_component:
-            shared_col = shared_columns[i]
-            for colname,val in shared_col.iteritems():
-                cols.append(cols)
-                names.append(colname)
 
         temp_cols = [np.zeros((length,)) for elem in colnames]
         for input_bin_index, indices, start, stop in loc_iterable:
             input_cat = data_object[input_bin_index]
             for temp_col, colname in zip(temp_cols,colnames):
                 temp_col[start:stop] = input_cat[colname][indices]
-        if build_cat:
+
+        if share_position_component:
+            assert isinstance(shared_table[i],tbl.Table)
+            result = ShearCatalog(shared_table[i],copy=False)
+            for temp_col, colname in zip(temp_cols,colnames):
+                result[colname] = temp_col
+        else:
             result = ShearCatalog(cols + temp_cols,
                                   names = tuple(names + colnames))
-        else:
-            result = cols+temp_cols
         out.append(result)
     return out
 
@@ -178,7 +177,7 @@ class StaticRebinner(object):
         self.new_bin_source_loc = new_bin_source_loc
         self.share_position_component = share_position_component
         self.output_bin_lengths = new_bin_cat_lengths
-        self.shared_columns = None
+        self.shared_tables = None
 
     def rebin(self, data_object, map_id):
 
@@ -186,27 +185,20 @@ class StaticRebinner(object):
         copy_input_cols = ["shear1","shear2","x","y","z"]
 
         if self.share_position_component:
-            if self.shared_columns is None:
+            if self.shared_tables is None:
                 shared_colnames = copy_input_cols[2:]
                 temp = _construct_rebinned_columns(data_object,shared_colnames,
                                                    self.output_bin_lengths,
                                                    self.new_bin_source_loc,
-                                                   False, [], build_cat = False)
-                self.shared_columns = []
-                for col_l in temp:
-                    col_dict = {}
-                    for colname,col_val in zip(shared_colnames,col_l):
-                        col_dict[colname] = tbl.Column(col_val, name = colname)
-                    self.shared_columns.append(col_dict)
-
+                                                   False)
+                self.shared_tables = temp
             copy_input_cols = copy_input_cols[:2]
 
         return _construct_rebinned_columns(data_object,copy_input_cols,
                                            self.output_bin_lengths,
                                            self.new_bin_source_loc,
                                            self.share_position_component,
-                                           self.shared_columns,
-                                           build_cat = True)
+                                           self.shared_tables)
 
 def build_static_z_rebinner(data_object, rebin_z_intervals,
                             share_position_component):
@@ -496,7 +488,6 @@ class LazyStaticShearCatRebinning(IntermediateProcedureStep):
         self.share_position_component = share_position_component
         self.build_attempted = False
 
-        print z_binning_cat_fname_formatter
         print isinstance(z_binning_cat_fname_formatter,
                               AbstractFnameFormatter)
         if ((z_binning_cat_fname_formatter is not None) and
