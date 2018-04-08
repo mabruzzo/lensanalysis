@@ -130,7 +130,23 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
         return temp
 
 
-def _zero_padded_fourierEB(shear_map, padding):
+def _zero_padded_fourierEB(shear_map, padding, fft_kernel = None):
+    """
+    Helper function for computed the zero_padded fourier E and B modes of the 
+    shear map.
+
+    Parameters
+    ----------
+    shear_map: ShearMap
+        The instance of ShearMap that is to be converted.
+    padding : int 
+        The number of zeros to use for padding along each axis
+    fft_kernel : np.ndarray, optional
+        The fouier transformed smoothing kernel. By default it is None. If it 
+        is not None, then both components of the shear map are smoothed before 
+        the EB mode decomposition.
+    """
+    
     data = np.lib.pad(shear_map.data,[(0,0),(0,padding),(0,padding)],
                       'constant')
     # This following is taken from the convergence instance method of the
@@ -138,6 +154,12 @@ def _zero_padded_fourierEB(shear_map, padding):
 
     ft_data1 = np.fft.rfft2(data[0])
     ft_data2 = np.fft.rfft2(data[1])
+
+    if fft_kernel is not None:
+        # now we smooth the components of the map
+        ft_data1 = ft_data1*fft_kernel
+        ft_data2 = ft_data2*fft_kernel
+        raise RuntimeError("Need to test that this works as intended.")
 
     #Compute frequencies
     lx = np.fft.rfftfreq(ft_data1.shape[0])
@@ -169,7 +191,8 @@ def _zero_padded_fourierEB(shear_map, padding):
 def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
                                                fft_kernel = None,
                                                map_mask = None, fill = 0,
-                                               mask_result = False):
+                                               mask_result = False,
+                                               pre_KS_smoothing = False):
     """
     Main function for converting shear map to smoothed convergence map.
 
@@ -196,6 +219,10 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     mask_result : bool, optional
         Whether or not the resulting convergence map should be masked. Default 
         is False.
+    pre_KS_smoothing: bool, optional
+        Whether or not the smoothing should be performed in Fourier space on 
+        the Shear Map before performing the Kaiser-Squires Transorm. Default is 
+        False.
     """
     assert fft_kernel is None or isinstance(fft_kernel,np.ndarray)
     assert pad_axis >= 0
@@ -204,14 +231,19 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     _unmasking(shear_map,mask,fill)
 
     # now get the fourier transformed E and B mode of the shear map
-    ft_E,ft_B = _zero_padded_fourierEB(shear_map, pad_axis)
-
-    if fft_kernel is None:
+    if pre_KS_smoothing:
+        # in this case we do the smoothing before the E,B mode decomposition
+        ft_E,ft_B = _zero_padded_fourierEB(shear_map, pad_axis,fft_kernel)
         final_E = ft_E
     else:
-        final_E = ft_E * fft_kernel
+        ft_E,ft_B = _zero_padded_fourierEB(shear_map, pad_axis)
+        # in this case we do the smoothing after the E,B mode decomposition
+        if fft_kernel is None:
+            final_E = ft_E
+        else:
+            final_E = ft_E * fft_kernel
 
-    # transform back
+    # transform back to real space
     temp = np.fft.irfft2(final_E)
     axis0,axis1 = temp.shape
     kwargs = dict((k,getattr(self,k)) for k in shear_map._extra_attributes)
@@ -268,7 +300,8 @@ def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
 
 def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
                                           truncate = 4.0, map_mask = None,
-                                          fill = 0, mask_result = False):
+                                          fill = 0, mask_result = False,
+                                          pre_KS_smoothing = False):
     """
     Converting shear map to smoothed convergence map.
 
@@ -290,6 +323,10 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
     mask_result : bool, optional
         Whether or not the resulting convergence map should be masked. Default 
         is False.
+    pre_KS_smoothing: bool, optional
+        Whether or not the smoothing should be performed in Fourier space on 
+        the Shear Map before performing the Kaiser-Squires Transorm. Default is 
+        False.
     """
     sigma_pix = _get_smooth_scale(shear_map,scale_angle)
     conv_map_length = shear_map.data.shape[-1]
@@ -298,4 +335,5 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
 
     return convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
                                                       fft_kernel, map_mask,
-                                                      fill, mask_result)
+                                                      fill, mask_result,
+                                                      pre_KS_smoothing)

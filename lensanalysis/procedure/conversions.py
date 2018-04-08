@@ -93,8 +93,8 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         Whether or not the resulting convergence map should be masked. Default 
         is False.
     pre_KS_smoothing: bool, optional
-        Whether or not the smoothing should be performed in real space on the 
-        Shear Map before performing the Kaiser-Squires Transorm. Default is 
+        Whether or not the smoothing should be performed in Fourier space on 
+        the Shear Map before performing the Kaiser-Squires Transorm. Default is 
         False.
     """
 
@@ -117,16 +117,13 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.mask_result = mask_result
         self.pre_KS_smoothing = pre_KS_smoothing
 
-        if self.mask_result and self.pre_KS_smoothing:
-            raise NotImplementedError("Not currently equipped to mask result "
-                                      "if we smoothing ahead of time.") 
-
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "
                             "map(s) for realization "
                             "{:d}").format(packet.data_id))
 
         out = []
+        pre_KS_smoothing = self.pre_KS_smoothing
         for shear_map in data_object:
             assert shear_map.side_angle == self.side_angle
             assert shear_map.data.shape[-1] == self.npixel
@@ -134,7 +131,8 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
                                                               self.pad_axis,
                                                               self.fft_kernel,
                                                               None, 0,
-                                                              self.mask_result)
+                                                              self.mask_result,
+                                                              pre_KS_smoothing)
             out.append(conv)
         return out
 
