@@ -92,9 +92,14 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     mask_result : bool, optional
         Whether or not the resulting convergence map should be masked. Default 
         is False.
+    pre_KS_smoothing: bool, optional
+        Whether or not the smoothing should be performed in real space on the 
+        Shear Map before performing the Kaiser-Squires Transorm. Default is 
+        False.
     """
 
-    def __init__(self,npixel,edge_angle,scale_angle,mask_result = False):
+    def __init__(self,npixel,edge_angle,scale_angle,mask_result = False,
+                 pre_KS_smoothing = False):
         assert npixel>0
         assert (edge_angle.unit.physical_type == "angle" and
                 edge_angle.value > 0)
@@ -110,6 +115,11 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.side_angle = edge_angle
 
         self.mask_result = mask_result
+        self.pre_KS_smoothing = pre_KS_smoothing
+
+        if self.mask_result and self.pre_KS_smoothing:
+            raise NotImplementedError("Not currently equipped to mask result "
+                                      "if we smoothing ahead of time.") 
 
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "

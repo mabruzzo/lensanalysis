@@ -226,6 +226,17 @@ class ProcedureConfig(object):
             return self._config.getboolean("AnalysisOptions",
                                            "mask_convergence_conversion")
         return False
+
+    def pre_KS_smoothing(self):
+        """
+        If we should smooth the Shear Map prior to the Kaiser-Squires 
+        Conversion (if we are smoothing at all. Default is False.
+        """
+        if self._config.has_option("AnalysisOptions",
+                                   "pre_KS_smoothing"):
+            return self._config.getboolean("AnalysisOptions",
+                                           "pre_KS_smoothing")
+        return False
     
     def get_smoothing_scale(self):
         value = self._config.getfloat("AnalysisOptions",

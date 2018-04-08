@@ -42,3 +42,5 @@ New Features
   - "Emulator-like Class" that interpolates the chi-squared values
   - add option to compute features without adding noise (or objects that
     already have noise).
+  - add option to save smoothed shear maps. Then refactor the smoothing of
+    shear maps to not occur immediately before the Kaiser-Squires transform.
