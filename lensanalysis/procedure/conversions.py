@@ -75,7 +75,7 @@ class ShearMapToConvMap(ConversionProcedureStep):
 
         out = map(convert_shear_to_convergence, data_object)
         return out
-
+    
 class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     """
     Converts collections of shear maps into collections of smoothed convergence 
@@ -96,10 +96,22 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         Whether or not the smoothing should be performed in Fourier space on 
         the Shear Map before performing the Kaiser-Squires Transorm. Default is 
         False.
+    real_space_smoothing : bool, optional
+        If the map should be smoothed in real space. Default is False. For now 
+        this only works if pre_KS_smoothing is True.
+    edge_mode: str,optional
+        How to handle smoothing at the edge of the array. Valid modes are 
+        {'constant', 'refect'}. When mode is equal to 'constant' it assumes 
+        everywhere beyond the edge is set to 0. Presently, 
+        real_space_smoothing only works with 'reflect' and fft smoothing only 
+        works with 'constant'. If set to None, then default for 
+        real_space_smoothing is 'reflect' and default for the fft smoothing is 
+        constant.
     """
 
     def __init__(self,npixel,edge_angle,scale_angle,mask_result = False,
-                 pre_KS_smoothing = False):
+                 pre_KS_smoothing = False,real_space_smoothing = False,
+                 edge_mode = None):
         assert npixel>0
         assert (edge_angle.unit.physical_type == "angle" and
                 edge_angle.value > 0)
@@ -108,14 +120,24 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
         sigma_pix = (scale_angle * float(npixel)
                      / (edge_angle)).decompose().value
-        fft_kernel, pad_axis = determine_kernel_fft(sigma_pix, npixel)
-        self.fft_kernel = fft_kernel
-        self.pad_axis = pad_axis
+        self.sigma_pix = sigma_pix
+
+        if real_space_smoothing:
+            if not pre_KS_smoothing:
+                raise ValueError("Not presently able to perform real space "
+                                 "smoothing on Convergence Maps after "
+                                 "Kaiser-Squire Transform")
+        else:
+            
+            fft_kernel, pad_axis = determine_kernel_fft(sigma_pix, npixel)
+            self.fft_kernel = fft_kernel
+            self.pad_axis = pad_axis
         self.npixel = npixel
         self.side_angle = edge_angle
 
         self.mask_result = mask_result
         self.pre_KS_smoothing = pre_KS_smoothing
+        raise RuntimeError()
 
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "

@@ -25,6 +25,29 @@ def _remasking(shear_map,conv_map,mask,mask_conv = True):
     shear_map.data[0][mask] = np.nan
     shear_map.data[1][mask] = np.nan
 
+def smooth_shear(shear_map,smooth,fill = 0):
+    #Smoothing scale in pixel - adapted from lenstools/catalog/shear.py
+    assert (smooth.unit.physical_type == 
+            shear_map.side_angle.unit.physical_type)
+    # map must be a square
+    npixel = shear_map.data.shape[1]
+    map_size = shear_map.side_angle
+    smooth_in_pixel = (smooth * npixel / map_size).decompose().value
+    
+    first = np.copy(shear_map.data[0,...])
+    second = np.copy(shear_map.data[1,...])
+    
+    first[np.isnan(first)]=fill
+    second[np.isnan(second)]=fill
+
+    s1 = gaussian_filter(first,sigma=smooth_in_pixel)
+    s2 = gaussian_filter(second,sigma=smooth_in_pixel)
+    
+    kwargs = {}
+    for elem in shear_map._extra_attributes:
+        kwargs[elem] = getattr(shear_map,elem)
+    return ShearMap(np.array([s1,s2]),map_size, **kwargs)
+    
 def convert_shear_to_convergence(shear_map, map_mask=None, fill = 0):
     """
     This function defines how we will convert from the shear map to the 
@@ -159,7 +182,6 @@ def _zero_padded_fourierEB(shear_map, padding, fft_kernel = None):
         # now we smooth the components of the map
         ft_data1 = ft_data1*fft_kernel
         ft_data2 = ft_data2*fft_kernel
-        raise RuntimeError("Need to test that this works as intended.")
 
     #Compute frequencies
     lx = np.fft.rfftfreq(ft_data1.shape[0])
@@ -197,7 +219,8 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     Main function for converting shear map to smoothed convergence map.
 
     This function assumes that the smoothing kernel has already been 
-    transformed.
+    transformed. Note that this smoothing assumes the boundary condition 
+    everywhere beyond the original boundaries of the array have values of 0.
 
     Parameters
     ----------
@@ -304,6 +327,9 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
                                           pre_KS_smoothing = False):
     """
     Converting shear map to smoothed convergence map.
+
+    Note that smoothing in fourier space is the equivalent of smoothing using 
+    the boundary condition in which all pixels beyond the boundary are set to 0.
 
     Parameters
     ----------
