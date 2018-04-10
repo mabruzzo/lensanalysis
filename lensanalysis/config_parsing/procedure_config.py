@@ -253,7 +253,7 @@ class ProcedureConfig(object):
         """
         Controls how smoothing handles the edge case (if we are smoothing at 
         all). Allowed values for real space smoothing are 'constant' and '
-        reflect' (the latter is the default. The only option for Fourier space 
+        mirror' (the latter is the default. The only option for Fourier space 
         smoothing is 'constant'.
         """
         real_space_smoothing = self.real_space_smoothing()
@@ -261,10 +261,10 @@ class ProcedureConfig(object):
         if self._config.has_option("AnalysisOptions", "edge_mode"):
             val = self._config.getboolean("AnalysisOptions", "edge_mode")
             if val != 'default':
-                if real_space_smoothing and val not in ['constant','reflect']:
+                if real_space_smoothing and val not in ['constant','mirror']:
                     raise ValueError("The only allowed values of the edge_mode "
                                      "option for real space smoothing include "
-                                     "{default, constant, reflect}.")
+                                     "{default, constant, mirror}.")
                 elif (not real_space_smoothing) and val != 'constant':
                     raise ValueError("The only allowed values of the edge_mode "
                                      "option for Fourier space smoothing "
@@ -272,7 +272,7 @@ class ProcedureConfig(object):
                 return val
         # return default values
         if real_space_smoothing:
-            return "reflect"
+            return "mirror"
         else:
             return "constant"
     

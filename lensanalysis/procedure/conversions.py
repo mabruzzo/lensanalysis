@@ -116,10 +116,10 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         this only works if pre_KS_smoothing is True.
     edge_mode: str,optional
         How to handle smoothing at the edge of the array. Valid modes are 
-        {'constant', 'refect'}. When mode is equal to 'constant' it assumes 
+        {'constant', 'mirror'}. When mode is equal to 'constant' it assumes 
         everywhere beyond the edge is set to 0. Presently, fft smoothing only 
         works with 'constant'. If set to None, then edge_mode defaults to 
-        'reflect' for real space smoothing and 'constant' for Fourier space 
+        'mirror' for real space smoothing and 'constant' for Fourier space 
         smoothing.
 
     Notes
@@ -148,10 +148,10 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
         if real_space_smoothing:
             if edge_mode is None:
-                edge_mode = 'reflect'
-            elif edge_mode not in ['reflect', 'constant']:
+                edge_mode = 'mirror'
+            elif edge_mode not in ['mirror', 'constant']:
                 raise ValueError("For real space smoothing, edge_mode must be "
-                                 "'reflect' or 'constant'")
+                                 "'mirror' or 'constant'")
             
         else:
             if edge_mode is None:

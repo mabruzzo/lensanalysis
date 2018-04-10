@@ -41,8 +41,8 @@ def smooth_shear(shear_map,smooth_in_pixel,fill = 0, mode = 'reflect'):
         The value to fill all masked values with. Default is 0.
     mode : str, optional
         Determines how the array borders are handled. Valid modes include 
-        {'reflect', 'constant', 'wrap'}. If constant is selected, all values 
-        are assumed to be zero. Default is 'reflect'.
+        {'mirror', 'constant', 'wrap'}. If constant is selected, all values 
+        are assumed to be zero. Default is 'mirror'.
 
     Notes:
     ------
