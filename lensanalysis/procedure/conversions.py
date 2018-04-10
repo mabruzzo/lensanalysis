@@ -3,12 +3,15 @@ import warnings
 import numpy as np
 import astropy.table as tbl
 import astropy.units as u
+from scipy.ndimage import filters
 from lenstools import ShearMap
 
 from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
 from ..masked_operations import convert_shear_to_convergence, \
-    determine_kernel_fft, convert_shear_to_smoothed_convergence_main
+    determine_kernel_fft, smooth_shear
+from ..masked_operations import convert_shear_to_smoothed_convergence_main \
+    as convert_sh_to_sm_conv_main
 
 class ShearCatalogToShearMap(ConversionProcedureStep):
     """
@@ -75,6 +78,15 @@ class ShearMapToConvMap(ConversionProcedureStep):
 
         out = map(convert_shear_to_convergence, data_object)
         return out
+
+
+def _mask_from_shear(shear_map,conv_map):
+    """ 
+    Helper Function to apply shear_map mask on smoothed convergence map inplace.
+    """
+    m = np.logical_or(np.isnan(shear_map.data[0],
+                               shear_map.data[1]))
+    conv_map.mask(m.astype(np.int8),inplace=True)
     
 class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     """
@@ -90,8 +102,11 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     scale_angle : astropy.Quantity
         Size of smoothing to be performed. Must have units.
     mask_result : bool, optional
-        Whether or not the resulting convergence map should be masked. Default 
-        is False.
+        Whether or not the resulting convergence map should be masked. Note 
+        that the original shear map is always unmasked and has masked values 
+        set to 0. Only at the very end, after smoothing and applying the 
+        Kaiser-Squires Transform is the convergence map masked. Default is
+        False.
     pre_KS_smoothing: bool, optional
         Whether or not the smoothing should be performed in Fourier space on 
         the Shear Map before performing the Kaiser-Squires Transorm. Default is 
@@ -102,11 +117,20 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     edge_mode: str,optional
         How to handle smoothing at the edge of the array. Valid modes are 
         {'constant', 'refect'}. When mode is equal to 'constant' it assumes 
-        everywhere beyond the edge is set to 0. Presently, 
-        real_space_smoothing only works with 'reflect' and fft smoothing only 
-        works with 'constant'. If set to None, then default for 
-        real_space_smoothing is 'reflect' and default for the fft smoothing is 
-        constant.
+        everywhere beyond the edge is set to 0. Presently, fft smoothing only 
+        works with 'constant'. If set to None, then edge_mode defaults to 
+        'reflect' for real space smoothing and 'constant' for Fourier space 
+        smoothing.
+
+    Notes
+    -----
+        If smoothing is performed in Fourier Space, then the Kaiser-Squires 
+        Transform is implicitly performed using an array that has been 
+        zero-padded enough to avoid the wrapping boundary condition while 
+        smoothing
+
+        If smoothing is performed in Real Space, then there is no zero-padding
+        for the Kaiser-Squires Transform.
     """
 
     def __init__(self,npixel,edge_angle,scale_angle,mask_result = False,
@@ -123,21 +147,29 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.sigma_pix = sigma_pix
 
         if real_space_smoothing:
-            if not pre_KS_smoothing:
-                raise ValueError("Not presently able to perform real space "
-                                 "smoothing on Convergence Maps after "
-                                 "Kaiser-Squire Transform")
-        else:
+            if edge_mode is None:
+                edge_mode = 'reflect'
+            elif edge_mode not in ['reflect', 'constant']:
+                raise ValueError("For real space smoothing, edge_mode must be "
+                                 "'reflect' or 'constant'")
             
+        else:
+            if edge_mode is None:
+                edge_mode = 'constant'
+            elif edge_mode != 'constant':
+                raise ValueError("For Fourier Space Smoothing, edge_mode must "
+                                 "be 'constant'")
             fft_kernel, pad_axis = determine_kernel_fft(sigma_pix, npixel)
             self.fft_kernel = fft_kernel
             self.pad_axis = pad_axis
+
         self.npixel = npixel
         self.side_angle = edge_angle
 
         self.mask_result = mask_result
+        self.real_space_smoothing = real_space_smoothing
         self.pre_KS_smoothing = pre_KS_smoothing
-        raise RuntimeError()
+        self.edge_mode = edge_mode
 
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "
@@ -146,16 +178,61 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
         out = []
         pre_KS_smoothing = self.pre_KS_smoothing
-        for shear_map in data_object:
-            assert shear_map.side_angle == self.side_angle
-            assert shear_map.data.shape[-1] == self.npixel
-            conv = convert_shear_to_smoothed_convergence_main(shear_map,
-                                                              self.pad_axis,
-                                                              self.fft_kernel,
-                                                              None, 0,
-                                                              self.mask_result,
-                                                              pre_KS_smoothing)
-            out.append(conv)
+        real_space_smoothing = self.real_space_smoothing
+        mode = self.edge_mode
+        sigma_pix = self.sigma_pix
+        if pre_KS_smoothing:
+            # smooth Shear Map prior to Kaiser-Squires transform
+            for shear_map in data_object:
+                assert shear_map.side_angle == self.side_angle
+                assert shear_map.data.shape[-1] == self.npixel
+
+                if real_space_smoothing:
+                    # unmask shear map and smooth it
+                    smoothed_shear = smooth_shear(shear_map, sigma_pix,
+                                                  fill = 0, mode = mode)
+                    # convert smoothed shear map to convergence map
+                    conv = smoothed_shear.convergence()
+                    # optionally, mask the resulting convergence map
+                    if self.mask_result:
+                        _mask_from_shear(shear_map,conv)
+                else:
+                    # as of now, we only allow smoothing in Fourier space using
+                    # the 'constant' edge_mode
+                    conv = convert_sh_to_sm_conv_main(shear_map,self.pad_axis,
+                                                      self.fft_kernel, None, 0,
+                                                      self.mask_result,
+                                                      pre_KS_smoothing = True)
+                out.append(conv)
+        else:
+            # smooth Convergence Map resulting from Kaiser-Squires Transform
+            for shear_map in data_object:
+                assert shear_map.side_angle == self.side_angle
+                assert shear_map.data.shape[-1] == self.npixel
+                if real_space_smoothing:
+                    # unmask shear map and convert to convergence map 
+                    temp = convert_shear_to_convergence(shear_map,
+                                                        map_mask = None,
+                                                        fill = 0,
+                                                        perserve_mask = False)
+                    # now smooth the Convergence Map
+                    kwargs = dict((k,getattr(self,k)) \
+                                  for k in temp._extra_attributes)
+                    conv = ConvergenceMap(filters.gauusian_filter(temp.data,
+                                                                  sigma_pix,
+                                                                  mode = mode),
+                                          temp.side_angle,**kwargs)
+                    # Finally, optionally mask the Convergence Map
+                    if self.mask_result:
+                        _mask_from_shear(shear_map,conv)
+                else:
+                    # as of now, we only allow smoothing in Fourier space using
+                    # the 'constant' edge_mode
+                    conv = convert_sh_to_sm_conv_main(shear_map, self.pad_axis,
+                                                      self.fft_kernel, None, 0,
+                                                      self.mask_result,
+                                                      pre_KS_smoothing = False)
+                out.append(conv)
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):

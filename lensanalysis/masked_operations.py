@@ -25,30 +25,44 @@ def _remasking(shear_map,conv_map,mask,mask_conv = True):
     shear_map.data[0][mask] = np.nan
     shear_map.data[1][mask] = np.nan
 
-def smooth_shear(shear_map,smooth,fill = 0):
-    #Smoothing scale in pixel - adapted from lenstools/catalog/shear.py
-    assert (smooth.unit.physical_type == 
-            shear_map.side_angle.unit.physical_type)
-    # map must be a square
-    npixel = shear_map.data.shape[1]
-    map_size = shear_map.side_angle
-    smooth_in_pixel = (smooth * npixel / map_size).decompose().value
-    
+def smooth_shear(shear_map,smooth_in_pixel,fill = 0, mode = 'reflect'):
+    """
+    Smooth Shear map in real space. Sets the values of the Shear Map to fill 
+    before smoothing.
+
+    Parameters
+    ----------
+    shear_map : lenstools.ShearMap
+        The instance of shear map to be smoothed. All values of NaN are assumed 
+        to be masked.
+    smooth_in_pixel : float
+        The smoothing scale in units of pixels
+    fill : float, optional
+        The value to fill all masked values with. Default is 0.
+    mode : str, optional
+        Determines how the array borders are handled. Valid modes include 
+        {'reflect', 'constant', 'wrap'}. If constant is selected, all values 
+        are assumed to be zero. Default is 'reflect'.
+
+    Notes:
+    ------
+        Adapted from lenstools/catalog/shear.py
+    """
     first = np.copy(shear_map.data[0,...])
     second = np.copy(shear_map.data[1,...])
     
     first[np.isnan(first)]=fill
     second[np.isnan(second)]=fill
 
-    s1 = gaussian_filter(first,sigma=smooth_in_pixel)
-    s2 = gaussian_filter(second,sigma=smooth_in_pixel)
-    
-    kwargs = {}
-    for elem in shear_map._extra_attributes:
-        kwargs[elem] = getattr(shear_map,elem)
+    s1 = gaussian_filter(first,sigma=smooth_in_pixel,mode=mode)
+    s2 = gaussian_filter(second,sigma=smooth_in_pixel,mode = mode)
+
+    kwargs = dict((k,getattr(self,k)) for k in shear_map._extra_attributes)
     return ShearMap(np.array([s1,s2]),map_size, **kwargs)
-    
-def convert_shear_to_convergence(shear_map, map_mask=None, fill = 0):
+
+
+def convert_shear_to_convergence(shear_map, map_mask = None, fill = 0,
+                                 perserve_mask = True):
     """
     This function defines how we will convert from the shear map to the 
     convergence map.
@@ -64,12 +78,19 @@ def convert_shear_to_convergence(shear_map, map_mask=None, fill = 0):
     fill : float or int, optional
         The value we fill in at the masked value when we perform the fourier 
         transform. Default is 0.
+    preserve_mask : bool, optional
+        If True, the result is remasked according to the input mask. If False, 
+        then the result is not remasked. Default is True.
     """
 
     mask = _determine_mask(shear_map,map_mask)
     _handle_unmasking(shear_map,mask,fill)
     conv_map = shear_map.convergence()
-    _remasking(shear_map,conv_map,mask)
+    if perserve_mask:
+        _remasking(shear_map,conv_map,mask)
+    else:
+        shear_map.data[0][mask] = np.nan
+        shear_map.data[1][mask] = np.nan
     return conv_map
 
 def _get_smooth_scale(map,scale_angle):
@@ -104,7 +125,9 @@ def smooth_conv_map(conv_map,scale_angle,kind="gaussian", truncate = 4.0,
     inplace : bool
         If True, performs the smoothing in place overwriting the old 
         convergence map
-    preserve_mask : bool
+    preserve_mask : bool, optional
+        If True, the result is remasked according to the input mask. If False, 
+        then the result is not remasked. Default is True.
     """
 
     sigma_pix = _get_smooth_scale(conv_map,scale_angle)

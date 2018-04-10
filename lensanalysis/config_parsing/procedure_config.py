@@ -230,13 +230,51 @@ class ProcedureConfig(object):
     def pre_KS_smoothing(self):
         """
         If we should smooth the Shear Map prior to the Kaiser-Squires 
-        Conversion (if we are smoothing at all. Default is False.
+        Conversion (if we are smoothing at all). Default is False.
         """
         if self._config.has_option("AnalysisOptions",
                                    "pre_KS_smoothing"):
             return self._config.getboolean("AnalysisOptions",
                                            "pre_KS_smoothing")
         return False
+
+    def real_space_smoothing(self):
+        """
+        If we should smooth the Shear Map/Convergence Map in real space (if we 
+        are smoothing at all). Default is False.
+        """
+
+        if self._config.has_option("AnalysisOptions", "real_space_smoothing"):
+            return self._config.getboolean("AnalysisOptions",
+                                           "real_space_smoothing")
+        return False
+
+    def edge_mode(self):
+        """
+        Controls how smoothing handles the edge case (if we are smoothing at 
+        all). Allowed values for real space smoothing are 'constant' and '
+        reflect' (the latter is the default. The only option for Fourier space 
+        smoothing is 'constant'.
+        """
+        real_space_smoothing = self.real_space_smoothing()
+
+        if self._config.has_option("AnalysisOptions", "edge_mode"):
+            val = self._config.getboolean("AnalysisOptions", "edge_mode")
+            if val != 'default':
+                if real_space_smoothing and val not in ['constant','reflect']:
+                    raise ValueError("The only allowed values of the edge_mode "
+                                     "option for real space smoothing include "
+                                     "{default, constant, reflect}.")
+                elif (not real_space_smoothing) and val != 'constant':
+                    raise ValueError("The only allowed values of the edge_mode "
+                                     "option for Fourier space smoothing "
+                                     "include {default, constant}.")
+                return val
+        # return default values
+        if real_space_smoothing:
+            return "reflect"
+        else:
+            return "constant"
     
     def get_smoothing_scale(self):
         value = self._config.getfloat("AnalysisOptions",
