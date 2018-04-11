@@ -24,17 +24,29 @@ def write_catalog_configuration(template_file,outfile,photoz_name):
     with open(outfile, 'w') as config_file:
         config.write(config_file)
 
+def update_stdouterr_redirection(job_settings,script_filename):
+    # update the redirections of stdout and stderr to be in the directory where
+    # the script has been placed.
 
+    # get directory where script is being saved
+    out_dir = os.path.basename(os.path.abspath(script_filename))
+
+    for attr in ['redirect_stdout','redirect_stderr']:
+        initial = getattr(job_settings,attr)
+        basename, fname = os.path.split(initial)
+        if basename != '':
+            raise ValueError(("The {:s} option must not include a directory "
+                              "path").format(attr))
+        setattr(job_settings,attr,os.path.join(out_dir,fname))
 
 def write_pos_file_builder_slurm_script(path,job_file,job_handler,
                                         input_template,start,stop,
                                         photoz_config_fname,
                                         photoz_name):
-    raise RuntimeError("MAKE SURE THE OUTPUT LOGS GET PLACED IN THE SAME "
-                       "DIRECTORY AS THE ONE WHERE EVERYTHING IS SAVED")
     script_filename = path
 
     job_settings = JobSettings.read(job_file, "PosFileBuilding")
+    update_stdouterr_redirection(job_settings,script_filename)
 
     num_proc = job_settings.cores_per_simulation
     arguments = ["-i {:s}".format(os.path.abspath(input_template)),
@@ -66,10 +78,11 @@ def write_raytrace_script(path,job_file,job_handler,ic_id):
     This is basically a modified version of the writeRaySubmission bound 
     method defined in the SimulationBatch class of LensTools
     """
-    raise RuntimeError("MAKE SURE THE OUTPUT LOGS GET PLACED IN THE SAME "
-                       "DIRECTORY AS THE ONE WHERE EVERYTHING IS SAVED")
+
     script_filename = path
     job_settings = JobSettings.read(job_file, "RayTracing")
+
+    update_stdouterr_redirection(job_settings,script_filename)
 
     job_settings.num_cores = job_settings.cores_per_simulation
 

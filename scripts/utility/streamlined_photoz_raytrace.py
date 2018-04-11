@@ -5,6 +5,17 @@ import os.path
 
 root_dir = '/work/05274/tg845732/stampede2/simData/LSST100Fid/Home/photoz'
 
+def process_output(output):
+    l = output.split('\n')
+    if len(l) != 18:
+        print "Job submission failed. Submission output shown below:"
+        print output
+        raise RuntimeError()
+    if l[16][:20] != "Submitted batch job ":
+        print "Job submission output unexpected. Submission output shown below."
+        print output
+        raise RuntimeError()
+    return int(l[16][20:])
 
 if __name__ == '__main__':
     assert len(sys.argv) == 2
@@ -13,12 +24,13 @@ if __name__ == '__main__':
 
     # first we run the setup_photoz_raytrace.py script
     setup_command = ["python", "setup_photoz_raytrace.py"]
-    subprocess.call(setup_command,shell=True, stdout=sys.stdout,
-                    stderr = sys.stderr)
+    code = subprocess.call(setup_command,shell=True, stdout=sys.stdout,
+                           stderr = sys.stderr)
 
     # Second, check exit code of setup_photoz_raytrace.py
     # if the exit code is anything other than 0 we exit
-
+    if code != 0:
+        raise RuntimeError("setup_photoz_raytrace.py was unsuccesful")
 
 
     # Next we run add_photoz_errors.py (OPTIONALLY - may want to check that the
@@ -31,9 +43,7 @@ if __name__ == '__main__':
     
     noise_output = subprocess.check_output(noise_command,
                                            shell = True)
-    raise RuntimeError("WE NEED TO PARSE the output from submitting the noise "
-                       "addition script to get the noise addition job id")
-    noise_addition_id = None
+    noise_addition_id = process_output(noise_output)
     
 
     # Then, we need to execute the ray.sh
@@ -43,8 +53,9 @@ if __name__ == '__main__':
                         os.path.abspath(script_loc)]
 
     #raise RuntimeError("WE MAY WANT JOBID FOR RAYTRACING SLURM JOB")
-    subprocess.call(noise_command,shell = True, stdout=sys.stdout,
-                    stderr = sys.stderr)
+    ray_output = subprocess.check_output(noise_command, shell = True,
+                                         stdout=sys.stdout, stderr = sys.stderr)
+    ray_id = process_output(ray_output)
 
     # Finally - OPTIONAL - we may want to build a score database for the
     # resulting Shear Catalogs.
