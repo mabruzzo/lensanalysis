@@ -28,10 +28,11 @@ if __name__ == '__main__':
     script_loc = "{:s}/{:s}/build_pos_files.sh".format(root_dir,photoz_name)
     noise_command = ["sbatch", os.path.abspath(script_loc)]
 
-    raise RuntimeError("WE NEED TO GET THE JOBID FOR THE SUBMITTED SLURM JOB")
-    subprocess.call(noise_command,shell = True, stdout=sys.stdout,
-                    stderr = sys.stderr)
-
+    
+    noise_output = subprocess.check_output(noise_command,
+                                           shell = True)
+    raise RuntimeError("WE NEED TO PARSE the output from submitting the noise "
+                       "addition script to get the noise addition job id")
     noise_addition_id = None
     
 
