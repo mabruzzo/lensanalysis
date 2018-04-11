@@ -50,7 +50,7 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
 
     num_proc = job_settings.cores_per_simulation
     arguments = ["-i {:s}".format(os.path.abspath(input_template)),
-                 "-o position_cat{:d}.fits",
+                 "-o position_bin{:d}.fits",
                  "-b {:d}".format(start),
                  "-s {:d}".format(stop),
                  "-c {:s}".format(os.path.abspath(photoz_config_fname))]

@@ -2,8 +2,29 @@ import subprocess
 import sys
 import os.path
 
+"""
+This is more for convenience. The actual script must be modified for a given 
+configuration.
+"""
 
+setup_script_loc = ("/work/05274/tg845732/stampede2/lensanalysis/scripts/"
+                    "utility/setup_photoz_raytrace.py")
+
+job_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
+            'setup_photoz_job.ini')
+system_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
+               'stampede2.ini')
 root_dir = '/work/05274/tg845732/stampede2/simData/LSST100Fid/Home/photoz'
+config_file = '/work/05274/tg845732/stampede2/analysis_settings/photoz_config.ini'
+template_cat = 'positions_bin{:d}.fits'
+input_template = ("/work/05274/tg845732/stampede2/simData/LSST100Fid/"
+                  "Home/Jobs/positions_bin{:d}.fits")
+model_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
+              'collections.txt')
+
+# the indices to use with position bin templates
+begin = 1
+stop = 6
 
 def process_output(output):
     l = output.split('\n')
@@ -23,7 +44,17 @@ if __name__ == '__main__':
     photoz_name = sys.argv[1]
 
     # first we run the setup_photoz_raytrace.py script
-    setup_command = ["python", "setup_photoz_raytrace.py"]
+    setup_command = ["python", setup_script_loc,
+                     "--job",job_file,
+                     "--system", system_file,
+                     "--root_dir", root_dir,
+                     "--config", config_file,
+                     "--template_cat", template_cat,
+                     "--input_template", input_template,
+                     "--model_id", model_file,
+                     "--begin",begin, "--stop", stop,
+                     photoz_name]
+
     code = subprocess.call(setup_command,shell=True, stdout=sys.stdout,
                            stderr = sys.stderr)
 
