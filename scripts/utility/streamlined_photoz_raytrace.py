@@ -15,7 +15,8 @@ job_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
 system_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
                'stampede2.ini')
 root_dir = '/work/05274/tg845732/stampede2/simData/LSST100Fid/Home/photoz'
-config_file = '/work/05274/tg845732/stampede2/analysis_settings/photoz_config.ini'
+config_file = ('/work/05274/tg845732/stampede2/raytrace_photoz_settings/'
+               'photoz_config.ini')
 template_cat = 'positions_bin{:d}.fits'
 input_template = ("/work/05274/tg845732/stampede2/simData/LSST100Fid/"
                   "Home/Jobs/positions_bin{:d}.fits")
