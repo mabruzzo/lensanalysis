@@ -170,11 +170,9 @@ def build_shear_conversion(begin, procedure_config, storage_collection,
 
     real_space = procedure_config.real_space_smoothing()
     edge_mode = procedure_config.edge_mode()
-    pre_KS_smoothing = procedure_config.pre_KS_smoothing()
 
     second_step = ShearCatalogToShearMap(map_size = map_size, npixel = npixel,
                                          produce_single = produce_single,
-                                         pre_KS_smoothing = pre_KS_smoothing,
                                          real_space_smoothing = real_space,
                                          edge_mode = edge_mode)
 

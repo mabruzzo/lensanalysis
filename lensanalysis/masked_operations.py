@@ -269,6 +269,13 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
         Whether or not the smoothing should be performed in Fourier space on 
         the Shear Map before performing the Kaiser-Squires Transorm. Default is 
         False.
+
+    Notes
+    -----
+    Smoothing commutes with the Kaiser-Squires Transform. If the order of 
+    operations is inverted, then the final result does not change. Therefore, 
+    smoothing the Shear map before the Kaiser-Squires Transform offers no 
+    benefit and is guarunteed to take longer.
     """
     assert fft_kernel is None or isinstance(fft_kernel,np.ndarray)
     assert pad_axis >= 0
@@ -376,6 +383,13 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
         Whether or not the smoothing should be performed in Fourier space on 
         the Shear Map before performing the Kaiser-Squires Transorm. Default is 
         False.
+
+    Notes
+    -----
+    Smoothing commutes with the Kaiser-Squires Transform. If the order of 
+    operations is inverted, then the final result does not change. Therefore, 
+    smoothing the Shear map before the Kaiser-Squires Transform offers no 
+    benefit and is guarunteed to take longer.
     """
     sigma_pix = _get_smooth_scale(shear_map,scale_angle)
     conv_map_length = shear_map.data.shape[-1]
