@@ -1,11 +1,11 @@
 import argparse
 from multiprocessing import Pool
 import os.path
+from string import Formatter
 
 import numpy as np
 
 from lenstools.catalog.shear import Catalog
-
 from lensanalysis.config_parsing.photoz_config import PhotozConfig
 
 description = ("A program that applies photoz effects to position catalogs. It "
@@ -43,7 +43,7 @@ parser.add_argument("--mp", dest = "mp",
                     help = ("Indicates if we should use multiprocessing for "
                             "adding photoz errors.This expects an integer "
                             "number of processes greater than 1."))
-parser.add_argument("id",nargs=1, required = True,
+parser.add_argument("id",nargs=1,
                     help = "The name of the photoz error scheme to use.")
 
 
@@ -77,13 +77,13 @@ def check_template(template_name,template_val):
                           'index.').format(template_name, template_val))
 
     # check that the template is a fits file
-    if input_template[-5:] != ".fits":
+    if template_val[-5:] != ".fits":
         raise ValueError(('The {:s} option must supply templates for ".fits" '
                           'files').format(template_name))
 
 def get_input_template_and_indices(cmd_args):
     # first load the indices
-    start,stop = get_indices
+    start,stop = get_indices(cmd_args)
 
     # next load the input template
     input_template = cmd_args.input_template
@@ -94,22 +94,23 @@ def get_input_template_and_indices(cmd_args):
     # next check that all of the files exist
     for i in range(start,stop):
         path = input_template.format(i)
-        if not os.isfile(path):
+        if not os.path.isfile(path):
             raise ValueError("There is no file called {:s}".format(path))
     return input_template, range(start,stop)
 
 
-def get_output_template(cmd_args):
+def get_output_template(cmd_args,attr='output_template'):
     """
     repurposed from collect_peak_counts.
     """
-    output_template = cmd_args.output_template
+    output_template = getattr(cmd_args,attr)
 
     # check the formatting of the template
     check_template("--output_template", output_template)
 
+    dirname = os.path.dirname(output_template)
     # ensure that the output template points to files in an existing directory
-    if not os.path.isdir(os.path.dirname(output_template)):
+    if dirname!= '' and not os.path.isdir(dirname):
         raise ValueError(('The directory in which output files formated with '
                           '--output_template will be saved, "{:s}" does not '
                           'exist').format(os.path.dirname(output_template)))
@@ -141,12 +142,12 @@ def get_num_processes_and_chunksize(cmd_args,num_indices):
 def get_photoz_func(cmd_args):
     config_fname = cmd_args.config
 
-    if not os.isfile(config_fname):
+    if not os.path.isfile(config_fname):
         raise ValueError(("The file provided for --config, {:s}, does not "
                           "exist").format(config_fname))
     config = PhotozConfig.from_fname(config_fname)
 
-    photoz_func = PhotozConfig.get_photoz_noise_addition(cmd_args.id)
+    photoz_func = config.get_photoz_noise_addition(cmd_args.id[0])
     return photoz_func
 
 class ConfigFunc(object):
@@ -164,8 +165,8 @@ class ConfigFunc(object):
         diff = photoz_func(cat["z"],0,index)
         cat["z"] += diff
         if photoz_func.can_be_neg:
-            w = (catalog["z"] <0.0)
-            catalog["z"][w] = 0.0
+            w = (cat["z"] <0.0)
+            cat["z"][w] = 0.0
 
         cat.write(output_fname)
 

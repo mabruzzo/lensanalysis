@@ -15,7 +15,8 @@ import os, os.path
 from lenstools.pipeline.deploy import ParsedHandler
 from lenstools.pipeline.settings import JobSettings, CatalogSettings
 
-from add_photoz_errors import get_input_template_and_indices,get_indices
+from add_photoz_errors import get_input_template_and_indices,get_indices, \
+    get_output_template
 
 def write_catalog_configuration(template_file,outfile,photoz_name):
     config = ConfigParser.SafeConfigParser()
@@ -29,7 +30,7 @@ def update_stdouterr_redirection(job_settings,script_filename):
     # the script has been placed.
 
     # get directory where script is being saved
-    out_dir = os.path.basename(os.path.abspath(script_filename))
+    out_dir = os.path.dirname(os.path.abspath(script_filename))
 
     for attr in ['redirect_stdout','redirect_stderr']:
         initial = getattr(job_settings,attr)
@@ -70,7 +71,7 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
         scriptfile.write('\n')
 
 
-def write_raytrace_script(path,job_file,job_handler,ic_id):
+def write_raytrace_script(path,job_file,job_handler,ic_id,env_file):
     # need to do this in one simple chunk
     # use the lensplanes saved under the name of the fiducial cosmology
 
@@ -109,17 +110,20 @@ def write_raytrace_script(path,job_file,job_handler,ic_id):
                           "{0}".format(realizations_in_chunk[e])))
     
     executable = (job_settings.path_to_executable + " " +
-                  '-e {0} -c {1} "{2}" '.format(environment_file, config_fname,
+                  '-e {0} -c {1} "{2}" '.format(env_file, config_fname,
                                                 ic_id))
-    with self.syshandler.open(script_filename,"w") as scriptfile:
+    working_dir = os.path.dirname(os.path.abspath(path))
+    with open(script_filename,"w") as scriptfile:
         scriptfile.write(job_handler.writePreamble(job_settings))
         scriptfile.write("cd {:s}\n".format(working_dir))
-        scriptfile.write(job_handler.writeExecution([executable],
-                                                    job_settings.num_cores,
-                                                    job_settings))
+
+        temp = job_handler.writeExecution([executable],
+                                          [job_settings.num_cores],
+                                          job_settings)
+        scriptfile.write(temp)
 
 def setup(photoz_name,system_file, job_file, catalog_template, input_template,
-          start, stop, photoz_config_fname,ic_id):
+          start, stop, photoz_config_fname,ic_id,env_file):
 
     # should probably check that the photoz_name is actually contained by the
     # configuration file
@@ -135,7 +139,7 @@ def setup(photoz_name,system_file, job_file, catalog_template, input_template,
             raise RuntimeError(("{:s} already exists and it is not a "
                                 "directory").format(new_dir))
     else:
-        os.path.mkdir(new_dir)
+        os.mkdir(new_dir)
 
     config_fname = os.path.join(new_dir,"catalog.ini")
 
@@ -150,9 +154,9 @@ def setup(photoz_name,system_file, job_file, catalog_template, input_template,
     pos_file_script = os.path.abspath(os.path.join(new_dir,
                                                    "build_pos_files.sh"))
     if os.path.exists(pos_file_script):
-        if not os.path.isfile(pos_file_fname):
+        if not os.path.isfile(pos_file_script):
             raise RuntimeError(("{:s} already exists and it is not a "
-                                "file").format(pos_file_fname))
+                                "file").format(pos_file_script))
     else:
         write_pos_file_builder_slurm_script(pos_file_script, job_file,
                                             job_handler, input_template,
@@ -163,12 +167,13 @@ def setup(photoz_name,system_file, job_file, catalog_template, input_template,
     # create ray.sh
     ray_file_script = os.path.abspath(os.path.join(new_dir,"ray.sh"))
     if os.path.exists(ray_file_script):
-        if not os.path.isfile(ray_file_fname):
+        if not os.path.isfile(ray_file_script):
             raise RuntimeError(("{:s} already exists and it is not a "
-                                "file").format(ray_file_fname))
+                                "file").format(ray_file_script))
     else:
         # need to create ray.sh
-        write_raytrace_script(ray_file_script,job_file,job_handler,ic_id)
+        write_raytrace_script(ray_file_script,job_file,job_handler,ic_id,
+                              env_file)
 
 def get_config_file(cmd_args,attr_name,option_name):
     fname = getattr(cmd_args,attr_name)
@@ -185,11 +190,17 @@ def driver(cmd_args):
     photoz_config_fname = get_config_file(cmd_args,"config","--config")
     catalog_template = get_config_file(cmd_args,"template_cat",
                                        "--template_cat")
+    env_file = get_config_file(cmd_args,"enviro_file","--environment_file")
+    #catalog_template = get_output_template(cmd_args,'template_cat')
+    #catalog_template = cmd_args.template_cat
 
     ic_id = cmd_args.model_id
-    photoz_name = cmd_args.id
-    setup(photoz_name,system_file, job_file, catalog_template,
-          input_template, start, stop, photoz_config_fname, ic_id)
+    photoz_name = cmd_args.id[0]
+    setup(photoz_name = photoz_name, system_file = system_file, 
+          job_file = job_file, catalog_template = catalog_template,
+          input_template = input_template, start=start, stop=stop, 
+          photoz_config_fname=photoz_config_fname, ic_id=ic_id, 
+          env_file=env_file)
 
 
 
@@ -230,11 +241,13 @@ parser.add_argument("--stop", dest = "stop", action = "store",
                             "the templates ( (--stop - 1) gives the final "
                             "index used to format a template)."))
 parser.add_argument("-m","--model_id", dest = "model_id", required = True,
-                    help = ('Supplies a file which contains the ic of '
-                            'the planes to use for raytracing, in the form '
+                    help = ('Supplies the ic of the planes to use for '
+                            'raytracing, in the form '
                             '"cosmo_id|geometry_id". '
                             'E.g: Om0.260_Ol0.740_w-1.000_si0.800|512b260'))
-
+parser.add_argument("-e","--environment_file",dest="enviro_file",
+                    required = True,
+                    help = "The environment file to use with the raytracing.")
 
 if __name__ == '__main__':
     cmd_args = parser.parse_args()
