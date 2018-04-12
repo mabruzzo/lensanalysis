@@ -9,7 +9,8 @@ from lenstools import ShearMap
 from .procedure import ConversionProcedureStep
 from ..misc.log import logprocedure
 from ..masked_operations import convert_shear_to_convergence, \
-    determine_kernel_fft, smooth_shear
+    determine_kernel_fft, smooth_shear, clip_smoothed_conv_map_boundaries, \
+    determine_kernel_length
 from ..masked_operations import convert_shear_to_smoothed_convergence_main \
     as convert_sh_to_sm_conv_main
 
@@ -117,6 +118,10 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         works with 'constant'. If set to None, then edge_mode defaults to 
         'mirror' for real space smoothing and 'constant' for Fourier space 
         smoothing.
+    clip_boundaries: bool,optional
+        If the boundaries of the convergence map where the smoothing kernel 
+        required information about pixels found outside of the map should be 
+        discarded. Default is False.
 
     Notes
     -----
@@ -135,7 +140,7 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
 
     def __init__(self,npixel,edge_angle,scale_angle,mask_result = False,
                  pre_KS_smoothing = False,real_space_smoothing = False,
-                 edge_mode = None):
+                 edge_mode = None, clip_boundaries = False):
         assert npixel>0
         assert (edge_angle.unit.physical_type == "angle" and
                 edge_angle.value > 0)
@@ -170,6 +175,13 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         self.real_space_smoothing = real_space_smoothing
         self.edge_mode = edge_mode
 
+        if clip_boundaries:
+            self.kernel_width = determine_kernel_length(sigma_pix,
+                                                         truncate = 4.0)
+            assert self.kernel_width > 0
+        else:
+            self.kernel_width = 0
+
     def conversion_operation(self,data_object,packet):
         logprocedure.debug(("Converting shear map(s) into smoothed convergence "
                             "map(s) for realization "
@@ -180,6 +192,7 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         real_space_smoothing = self.real_space_smoothing
         mode = self.edge_mode
         sigma_pix = self.sigma_pix
+        kernel_width = self.kernel_width
 
         for shear_map in data_object:
             assert shear_map.side_angle == self.side_angle
@@ -206,7 +219,11 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
                 conv = convert_sh_to_sm_conv_main(shear_map, self.pad_axis,
                                                   self.fft_kernel, None, 0,
                                                   self.mask_result)
-            out.append(conv)
+            if kernel_width:
+                out.append(clip_smoothed_conv_map_boundaries(conv,
+                                                             kernel_width))
+            else:
+                out.append(conv)
         return out
 
 class ConvMapToShearMap(ConversionProcedureStep):

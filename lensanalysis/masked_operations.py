@@ -1,6 +1,6 @@
 import numpy as np
 from lenstools import ShearMap, ConvergenceMap
-
+import astropy.units as u
 from astropy.convolution import Gaussian2DKernel, convolve, convolve_fft
 
 def _determine_mask(shear_map,map_mask):
@@ -305,8 +305,16 @@ def convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
     _remasking(shear_map,conv_map,mask,mask_conv =mask_result)
     return conv_map
 
+def determine_kernel_length(sigma_pix, truncate = 4.0):
+    if truncate == 4.0:
+        kernel = Gaussian2DKernel(sigma_pix).array
+        return kernel.shape[0]
+    else:
+        raise NotImplementedError("Not currently equipped to handle other "
+                                  "truncation sizes")
 
-def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
+def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0,
+                         edge = "constant"):
     """
     Computes the fft of gaussian kernel and computes amount of padding.
 
@@ -318,6 +326,11 @@ def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
         The number of pixels along each axis of the unpadded convergence map.
     truncate : float
         Truncate the Gaussian Filter at this many standard deviations
+    edge : str, optional
+        How to handle the boundary. Allowed values are {'constant','wrap'}. 
+        When set to 'constant' everywhere outside of the array is treated as 
+        zero. When set to 'wrap' the boundaries are considered to be periodic.
+        Default is constant.
     """
     if truncate == 4.0:
         kernel = Gaussian2DKernel(sigma_pix).array
@@ -326,7 +339,15 @@ def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
         raise NotImplementedError("Not currently equipped to handle other "
                                   "truncation sizes")
 
-    pad_axis = kernel.shape[0]
+    if edge == 'constant':
+        pad_axis = kernel.shape[0]
+    elif edge == 'wrap':
+        assert kernel.shape[0] < conv_map_length
+        pad_axis = 0
+    else:
+        raise ValueError("The only allowed edge values are 'wrap' and "
+                         'constant')
+
     new_shape = np.array([pad_axis+conv_map_length for i in range(2)])
     if new_shape[0]%2 != 0:
         # things get weird when the shape is not even
@@ -354,7 +375,8 @@ def determine_kernel_fft(sigma_pix, conv_map_length, truncate = 4.0):
 def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
                                           truncate = 4.0, map_mask = None,
                                           fill = 0, mask_result = False,
-                                          pre_KS_smoothing = False):
+                                          pre_KS_smoothing = False,
+                                          edge = "constant"):
     """
     Converting shear map to smoothed convergence map.
 
@@ -383,6 +405,11 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
         Whether or not the smoothing should be performed in Fourier space on 
         the Shear Map before performing the Kaiser-Squires Transorm. Default is 
         False.
+    edge : str, optional
+        How to handle the boundary. Allowed values are {'constant','wrap'}. 
+        When set to 'constant' everywhere outside of the array is treated as 
+        zero. When set to 'wrap' the boundaries are considered to be periodic.
+        Default is constant.
 
     Notes
     -----
@@ -391,12 +418,37 @@ def convert_shear_to_smoothed_convergence(shear_map, scale_angle,
     smoothing the Shear map before the Kaiser-Squires Transform offers no 
     benefit and is guarunteed to take longer.
     """
+    assert edge in ['constant','wrap']
+
     sigma_pix = _get_smooth_scale(shear_map,scale_angle)
     conv_map_length = shear_map.data.shape[-1]
     fft_kernel,pad_axis = determine_kernel_fft(sigma_pix, conv_map_length,
-                                               truncate)
+                                               truncate,edge)
 
     return convert_shear_to_smoothed_convergence_main(shear_map, pad_axis,
                                                       fft_kernel, map_mask,
                                                       fill, mask_result,
                                                       pre_KS_smoothing)
+
+def clip_smoothed_conv_map_boundaries(conv_map, kernel_width):
+    assert(conv_map.data.shape[0]>kernel_width)
+    # kernel width is always odd. Its width/2 gives the number of pixels to the
+    # left (or to the right) of a central pixel that are used to evaluate the
+    # kernel 
+    dist = kernel_width/2
+    conv_map_length = conv_map.data.shape[0]
+    # we need to clip everything to the left of index dist, and
+    # everything to the right of and including conv_map_length-dist]
+    
+    temp = conv_map.data[dist:conv_map_length-dist,
+                         dist:conv_map_length-dist]
+    new_length = temp.shape[0]
+    kwargs = dict((k,getattr(self,k)) for k in conv_map._extra_attributes)
+    out = ConvergenceMap(temp, (new_length*conv_map.resolution).to(u.degree),
+                         **kwargs)
+    if conv_map._masked:
+        temp_mask = np.logical_not(np.isnan(conv_map.data).astype(np.int8))
+        mask = temp_mask[dist:,conv_map_length-dist,
+                         dist:conv_map_length-dist]
+        out.mask(mask,inplace=True)
+    return out

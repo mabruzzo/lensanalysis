@@ -238,6 +238,16 @@ class ProcedureConfig(object):
                                            "real_space_smoothing")
         return False
 
+    def clip_boundaries(self):
+        """
+        If we should clip the boundaries of the convergence map where the 
+        Smoothing kernel required information about pixels found outside of the 
+        map. Default is False.
+        """
+        if self._config.has_option("AnalysisOptions", "clip_boundaries"):
+            return self._config.getboolean("AnalysisOptions", "clip_boundaries")
+        return False
+
     def edge_mode(self):
         """
         Controls how smoothing handles the edge case (if we are smoothing at 
@@ -250,14 +260,16 @@ class ProcedureConfig(object):
         if self._config.has_option("AnalysisOptions", "edge_mode"):
             val = self._config.getboolean("AnalysisOptions", "edge_mode")
             if val != 'default':
-                if real_space_smoothing and val not in ['constant','mirror']:
+                if real_space_smoothing and val not in ['constant','mirror',
+                                                        'wrap']:
                     raise ValueError("The only allowed values of the edge_mode "
                                      "option for real space smoothing include "
-                                     "{default, constant, mirror}.")
-                elif (not real_space_smoothing) and val != 'constant':
+                                     "{default, constant, mirror, wrap}.")
+                elif (not real_space_smoothing) and val not in ['constant',
+                                                                'wrap']:
                     raise ValueError("The only allowed values of the edge_mode "
                                      "option for Fourier space smoothing "
-                                     "include {default, constant}.")
+                                     "include {default, constant, wrap}.")
                 return val
         # return default values
         if real_space_smoothing:
