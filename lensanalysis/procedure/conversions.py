@@ -109,8 +109,7 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
         Kaiser-Squires Transform is the convergence map masked. Default is
         False.
     real_space_smoothing : bool, optional
-        If the map should be smoothed in real space. Default is False. For now 
-        this only works if pre_KS_smoothing is True.
+        If the map should be smoothed in real space. Default is False.
     edge_mode: str,optional
         How to handle smoothing at the edge of the array. Valid modes are 
         {'constant', 'mirror'}. When mode is equal to 'constant' it assumes 
@@ -139,7 +138,7 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
     """
 
     def __init__(self,npixel,edge_angle,scale_angle,mask_result = False,
-                 pre_KS_smoothing = False,real_space_smoothing = False,
+                 real_space_smoothing = False,
                  edge_mode = None, clip_boundaries = False):
         assert npixel>0
         assert (edge_angle.unit.physical_type == "angle" and
@@ -188,7 +187,6 @@ class ShearMapToSmoothedConvMap(ConversionProcedureStep):
                             "{:d}").format(packet.data_id))
 
         out = []
-        pre_KS_smoothing = self.pre_KS_smoothing
         real_space_smoothing = self.real_space_smoothing
         mode = self.edge_mode
         sigma_pix = self.sigma_pix

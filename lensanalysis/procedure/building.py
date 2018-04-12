@@ -127,10 +127,12 @@ def build_smooth_noisy_convergence(begin, procedure_config, storage_collection,
     edge_angle = procedure_config.get_conv_map_edge_angle()
     npixel = procedure_config.get_conv_map_resolution()
     mask_conv_map = procedure_config.mask_convergence_conversion()
+    clip_boundaries = procedure_config.clip_boundaries()
 
     out = ShearMapToSmoothedConvMap(npixel,edge_angle,
                                     procedure_config.get_smoothing_scale(),
-                                    mask_result = mask_conv_map)
+                                    mask_result = mask_conv_map,
+                                    clip_boundaries = clip_boundaries)
 
     if ots_conv.smoothed_noisy_map:
         # get the storage object

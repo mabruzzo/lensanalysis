@@ -258,7 +258,7 @@ class ProcedureConfig(object):
         real_space_smoothing = self.real_space_smoothing()
 
         if self._config.has_option("AnalysisOptions", "edge_mode"):
-            val = self._config.getboolean("AnalysisOptions", "edge_mode")
+            val = self._config.get("AnalysisOptions", "edge_mode")
             if val != 'default':
                 if real_space_smoothing and val not in ['constant','mirror',
                                                         'wrap']:
