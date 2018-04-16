@@ -14,6 +14,7 @@ import os, os.path
 
 from lenstools.pipeline.deploy import ParsedHandler
 from lenstools.pipeline.settings import JobSettings, CatalogSettings
+from lenstools.pipeline.simulation import SimulationBatch
 
 from add_photoz_errors import get_input_template_and_indices,get_indices, \
     get_output_template
@@ -51,7 +52,7 @@ def write_pos_file_builder_slurm_script(path,job_file,job_handler,
 
     num_proc = job_settings.cores_per_simulation
     arguments = ["-i {:s}".format(os.path.abspath(input_template)),
-                 "-o position_bin{:d}.fits",
+                 "-o positions_bin{:d}.fits",
                  "-b {:d}".format(start),
                  "-s {:d}".format(stop),
                  "-c {:s}".format(os.path.abspath(photoz_config_fname))]
@@ -122,6 +123,23 @@ def write_raytrace_script(path,job_file,job_handler,ic_id,env_file):
                                           job_settings)
         scriptfile.write(temp)
 
+
+def register_catalog_file(env_file, cat_config_fname, ic_id, photoz_id):
+    """
+    Registers the catalog configuration file with the Simulation Batch object.
+    """
+
+    batch = SimulationBatch.current(env_file)
+    model_id = ic_id.split('|')[0]
+    model = batch.getModel(model_id)
+    assert len(model.collections) == 1
+    collection = model.collections[0]
+
+    if collection.getCatalog(photoz_id) is None:
+        # the catalog has already been registered
+        catalog_settings = CatalogSettings.read(cat_config_fname)
+        collection.newCatalog(catalog_settings)
+
 def setup(photoz_name,system_file, job_file, catalog_template, input_template,
           start, stop, photoz_config_fname,ic_id,env_file):
 
@@ -149,6 +167,10 @@ def setup(photoz_name,system_file, job_file, catalog_template, input_template,
                                 "file").format(config_fname))
     else:
         write_catalog_configuration(catalog_template,config_fname,photoz_name)
+
+    # register the catalog configuration file
+    register_catalog_file(env_file, cat_config_fname = config_fname,
+                          ic_id = ic_id, photoz_id = photoz_name)
 
     # create build_pos_files.sh
     pos_file_script = os.path.abspath(os.path.join(new_dir,

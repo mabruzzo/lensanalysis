@@ -10,36 +10,6 @@ When setup properly, just call the script followed by the name of the
 photozError model
 """
 
-
-"""
-NEED TO ADD IN A STEP WHERE WE DO THE FOLLOWING
->>> from lenstools.pipeline.simulation import SimulationBatch
->>> from lenstools.pipeline.settings import EnvironmentSettings
->>> batch = SimulationBatch.current("/work/05274/tg845732/stampede2/simData/LSST100Fid/Home/environment.ini")
->>> model = batch.getModel("Om0.260_Ol0.740_w-1.000_si0.800")
->>> model
-<Om=0.260 , Ol=0.740 , w=-1.000 , si=0.800>
->>> batch.models
-[<Om=0.260 , Ol=0.740 , w=-1.000 , si=0.800>]
->>> model.collections
-[<Om=0.260 , Ol=0.740 , w=-1.000 , si=0.800> | box=260.0 Mpc/h,nside=512]
->>> model.collections[0]
-<Om=0.260 , Ol=0.740 , w=-1.000 , si=0.800> | box=260.0 Mpc/h,nside=512
->>> collection = model.collections[0]
->>> collection
-<Om=0.260 , Ol=0.740 , w=-1.000 , si=0.800> | box=260.0 Mpc/h,nside=512
->>> from lenstools.pipeline.settings import CatalogSettings
->>> catalog_settings = CatalogSettings.read("catalog.ini")
->>> collection.newCatalog(catalog_settings)
-
-
-We can check if a given catalog set has been created by calling collection.getCatalog(posConstBias)
-If it returns None then it has not been created yet
-
-
-When we resave the position catalogs, need to save them as positions_bin{:d}.fits instead of position_bin{:d}.fits
-"""
-
 setup_script_loc = ("/work/05274/tg845732/stampede2/lensanalysis/scripts/"
                     "utility/setup_photoz_raytrace.py")
 
