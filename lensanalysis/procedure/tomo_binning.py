@@ -274,7 +274,7 @@ class ConstantBias(PhotozNoiseAddition):
             self.can_be_neg = True
 
     def __call__(self,zspec,map_id,bin_num):
-        return self.bias*(1.+zspec)
+        return zspec + self.bias*(1.+zspec)
 
 class InvertedConstantBias(PhotozNoiseAddition):
     """
@@ -392,7 +392,7 @@ class PseudoPhotozRebinner(DynamicRebinner):
         for i,catalog in enumerate(data_object):
             photoz = func(catalog["z"],map_id,bin_num = i+1)
             if in_place:
-                catalog["z"] += photoz
+                catalog["z"] = photoz
                 if func.can_be_neg:
                     w = (catalog["z"] <0.0)
                     catalog["z"][w] = 0.0

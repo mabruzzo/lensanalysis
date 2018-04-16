@@ -162,8 +162,7 @@ class ConfigFunc(object):
         photoz_func = self.photoz_func
 
         cat = Catalog.read(input_fname)
-        diff = photoz_func(cat["z"],0,index)
-        cat["z"] += diff
+        cat["z"] = photoz_func(cat["z"],0,index)
         if photoz_func.can_be_neg:
             w = (cat["z"] <0.0)
             cat["z"][w] = 0.0
