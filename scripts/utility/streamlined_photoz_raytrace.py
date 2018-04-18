@@ -95,7 +95,7 @@ if __name__ == '__main__':
                         os.path.abspath(script_loc)]
     print "Submitting Raytracing job"
     #raise RuntimeError("WE MAY WANT JOBID FOR RAYTRACING SLURM JOB")
-    ray_output = subprocess.check_output(noise_command, shell = True)
+    ray_output = subprocess.check_output(raytrace_command, shell = True)
     ray_id = process_output(ray_output)
 
     # Finally - OPTIONAL - we may want to build a score database for the

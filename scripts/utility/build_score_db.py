@@ -62,7 +62,7 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     Loads the features from the sampled cosmologies from a numpy array and then 
     constructs the emulator.
     """
-    cosmo_names, ensembles = build_ensembles(paths,prefix=fname_prefix,
+    cosmo_names, ensembles = build_ensembles(feature_paths,prefix=fname_prefix,
                                              bin_num = bin_num)
     om_m, om_l, w, si = parse_parameter_vals(cosmo_names)
     temp = np.column_stack((om_m,om_l))
@@ -70,6 +70,10 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     sampling_parameters = np.column_stack((om_m,w,si))
     ensemble_params = lt.Ensemble(sampling_parameters,
                                   columns = parameter_index)
+    features = np.zeros((len(ensembles),ensembles[0].shape[0]))
+    for i,ensemble in enumerate(ensembles):
+        features[i,:] = ensemble.as_matrix()[:,0]
+    
     if pca is not None:
         pca_basis = Ensemble(features).principalComponents()
         features = pca_transform(features,pca_basis,pca).values
@@ -77,10 +81,12 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     else:
         pca_basis = None
 
-    features = np.zeros((len(ensembles),ensembles[0].shape[0]))
-    for i,ensemble in enumerate(ensembles):
-        features[i,:] = ensemble.as_matrix()[:,0]
-
+    
+    print features
+    print ensemble_params
+    print feature_index
+    print parameter_index
+    print pca_basis
     emulator = Emulator.from_features(features,ensemble_params.as_matrix(),
                                       parameter_index = parameter_index,
                                       feature_index = feature_index)
@@ -195,7 +201,7 @@ def load_config_details(cmd_args):
 
     num_tomo_bins = config.getint("Details","num_tomo_bins")
     assert num_peak_bins>0
-    out['num_tomo_bins'] = num_peak_bins
+    out['num_tomo_bins'] = num_tomo_bins
 
     # load in the covariance matrix array
     covariance_cosmo_path = config.get("Details","covariance_cosmo_path")
@@ -253,6 +259,8 @@ def identify_tomo_bins(cmd_args, config_dict):
 
 def determine_pca_bins(cmd_args,config_dict,tomo_bins):
     pca = cmd_args.pca
+    if pca is None:
+        return None
     assert pca > 0
     if -1 in tomo_bins:
         assert pca <= config_dict['num_peak_bins']*config_dict['num_tomo_bins']
@@ -312,11 +320,11 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
         specs[feature_name] = {"emulator" : emulator,
                                "data" : fiducial_obs,
                                "data_covariance" : features_covariance}
-    return specs, ensemble_params
+    return specs, ensemble_params, emulator.parameter_names
 
 def driver(cmd_args):
     config_dict = load_config_details(cmd_args)
-    tomo_bins = identify_tomo_bins(cmd_args)
+    tomo_bins = identify_tomo_bins(cmd_args,config_dict)
     
     pca_bins = determine_pca_bins(cmd_args,config_dict,tomo_bins)
     # for now, we will not worry about the following 2 parameters
@@ -324,9 +332,9 @@ def driver(cmd_args):
     db_name_template = None
 
     for elem in realization_ind:
-        specs, ensemble_params = prepare_specs(tomo_bins,config_dict,
-                                               pca_bins = pca_bins,
-                                               realization_ind = elem)
+        specs,ensemble_params,param_name = prepare_specs(tomo_bins,config_dict,
+                                                         pca_bins = pca_bins,
+                                                         realization_ind = elem)
 
         # probably should make the following adjustable
         # create the grid on which we will interpolate - probably should make
@@ -337,7 +345,7 @@ def driver(cmd_args):
                                  np.linspace(-1.5,-0.5,num_axis),
                                  np.linspace(0.5,1.2,num_axis),
                                  indexing="ij")).reshape(3,num_axis**3).T
-        test_parameters = Ensemble(p,columns=emulator.parameter_names)
+        test_parameters = Ensemble(p,columns=param_name)
         nchunks = 1
         pool = None
         nchunuks = None
