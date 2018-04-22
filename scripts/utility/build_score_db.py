@@ -1,6 +1,7 @@
 import argparse
 import ConfigParser
 import os, os.path
+from string import Formatter
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +9,7 @@ import lenstools as lt
 from lenstools.statistics.constraints import Emulator
 from lenstools.statistics.ensemble import Ensemble,Series
 from lenstools.statistics.database import chi2database
+from lenstools.utils.algorithms import pca_transform
 from glob2 import glob
 import pandas as pd
 
@@ -57,7 +59,8 @@ def parse_parameter_vals(names):
 
 
 def construct_emulator(feature_paths, parameter_index, feature_index = None,
-                       fname_prefix=None, bin_num=None, pca = None):
+                       fname_prefix=None, bin_num=None, pca = None,
+                       feature_name = 'features'):
     """
     Loads the features from the sampled cosmologies from a numpy array and then 
     constructs the emulator.
@@ -73,7 +76,7 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     features = np.zeros((len(ensembles),ensembles[0].shape[0]))
     for i,ensemble in enumerate(ensembles):
         features[i,:] = ensemble.as_matrix()[:,0]
-    
+
     if pca is not None:
         pca_basis = Ensemble(features).principalComponents()
         features = pca_transform(features,pca_basis,pca).values
@@ -81,12 +84,18 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     else:
         pca_basis = None
 
-    
-    print features
-    print ensemble_params
-    print feature_index
-    print parameter_index
-    print pca_basis
+    # now we construct the feature index
+    if feature_index is None:
+        feature_index = range(features.shape[1])
+
+    feature_index = Series.make_index(pd.Index(feature_index,
+                                               name=feature_name))
+
+    #print features
+    #print ensemble_params
+    #print feature_index
+    #print parameter_index
+    #print pca_basis
     emulator = Emulator.from_features(features,ensemble_params.as_matrix(),
                                       parameter_index = parameter_index,
                                       feature_index = feature_index)
@@ -94,20 +103,50 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
     return emulator, ensemble_params, pca_basis
 
 def build_covariance_matrix(path, emulator_columns, fname_prefix=None,
-                            bin_num=None, pca_basis = None, pca = None):
+                            bin_num=None, pca_basis = None, pca = None,
+                            estimation_correction = True):
     fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num)[1][0]
     if pca_basis is not None or pca is not None:
         if pca_basis is not None and pca is not None:
-            fiducial = Ensemble(pca_transform(temp.values.astype('float64'),
+            fiducial = Ensemble(pca_transform(fiducial.values.astype('float64'),
                                               pca_basis,pca).values)
         else:
             raise ValueError()
-
     features_covariance = Ensemble(fiducial.covariance().as_matrix(),
                                    index=emulator_columns,
                                    columns=emulator_columns)
+
+    """
+    Now we will correct the covariance matrix for the fact that it was 
+    estimated using a finite number of realizations.
+
+    This correction is important for when we invert the covariance matrix.
+    We are doing it here instead of after our inversion because we are unable 
+    to do so after the inversion.
+
+    This only works right now because we only ever use the covariance matrix 
+    during this inversion operation. If that changes, I don't know if we should 
+    still be doing this.
+
+
+    Anyway, in many papers (e.g. Zorrilla Matilla et al. 2016) and in LensTools
+    the inverse covariance matrix, Cinv is rescaled:
+    out = (N-d-2)/(N-1) * Cinv
+    where out is the corrected inverse covariance matrix, N is the number of 
+    realizations, and d is the dimensions of the summary statistic. (I have 
+    double checked that this is the operation performed by LensTools).
+
+    I have confirmed that multiply a scalar by Cinv is equivalent to dividing 
+    the covariance matrix by the same scalar before inversion.
+    Thus we will do:
+    Cov_out = (N-1)/(N-d-2)*Cov
+    """
+    if estimation_correction:
+        nr, d = float(fiducial.values.shape[0]), float(fiducial.values.shape[1])
+        # I have confirmed this updates values in place
+        features_covariance.values*= (nr-1.)/(nr-d-2.)
     return features_covariance
-    
+
 def load_fiducial(path, emulator_columns, fname_prefix=None, bin_num=None,
                   pca_basis = None, pca = None, indiv_realization = None):
     """
@@ -120,7 +159,7 @@ def load_fiducial(path, emulator_columns, fname_prefix=None, bin_num=None,
                                   "individual realizations")
     if pca_basis is not None or pca is not None:
         if pca_basis is not None and pca is not None:
-            fiducial = Ensemble(pca_transform(temp.values.astype('float64'),
+            fiducial = Ensemble(pca_transform(fiducial.values.astype('float64'),
                                               pca_basis,pca).values)
         else:
             raise ValueError()
@@ -270,6 +309,30 @@ def determine_pca_bins(cmd_args,config_dict,tomo_bins):
         assert pca <= config_dict['num_peak_bins']
     return pca
 
+def get_save_file(cmd_args,realizations):
+    template = cmd_args.save
+
+    iterable = Formatter().parse(template)
+
+    num = 0
+    for _, field_name, format_spec, _ in iterable:
+        if field_name is not None:
+            num +=1
+
+    if len(realizations) >1:
+        if num != 1:
+            raise ValueError("For individual realizations, the save_file must "
+                             "have 1 formatter template.")
+    elif len(realizations) == 1:
+        if realizations[0] == None:
+            if num != 0:
+                raise ValueError("For a model without any realizations, there "
+                                 "must not be any realizations")
+        elif num !=1:
+            raise ValueError("For individual realizations, the save_file must "
+                             "have 1 formatter template.")
+    return template
+
 def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                   realization_ind = None):
     """
@@ -300,11 +363,12 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
         temp = construct_emulator(config_dict['paths'], parameter_index,
                                   feature_index = feature_index,
                                   fname_prefix=fname_prefix,
-                                  bin_num=bin_num, pca = pca_bins)
+                                  bin_num=bin_num, pca = pca_bins,
+                                  feature_name = feature_name)
         emulator, ensemble_params,pca_basis = temp
 
         # load in the covariance matrix
-        emulator_col = emulator[["features"]].columns
+        emulator_col = emulator[[feature_name]].columns
         features_covariance = build_covariance_matrix(cov_path,
                                                       emulator_col,
                                                       fname_prefix=0,
@@ -329,7 +393,7 @@ def driver(cmd_args):
     pca_bins = determine_pca_bins(cmd_args,config_dict,tomo_bins)
     # for now, we will not worry about the following 2 parameters
     realization_ind = [None]
-    db_name_template = None
+    db_name_template = get_save_file(cmd_args,realization_ind)
 
     for elem in realization_ind:
         specs,ensemble_params,param_name = prepare_specs(tomo_bins,config_dict,
@@ -349,11 +413,21 @@ def driver(cmd_args):
         nchunks = 1
         pool = None
         nchunuks = None
+        #print len(specs)
+        #print specs.keys()
+        #emu = specs['TomoPeaks']['emulator']
+        #print emu
 
         if elem is None:
             db_name = db_name_template
         else:
             db_name = db_name_template.format(elem)
+        print db_name
+        if os.path.isfile(db_name):
+            # if we do not handle this, then the new scores will simply be
+            # added to the old scores
+            raise NotImplementedError("Have not defined behavior for when the "
+                                      "emulator already exists")
         chi2database(db_name,test_parameters,specs,table_name="scores",
                      pool=pool,nchunks=nchunks)
 
