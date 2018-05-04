@@ -471,7 +471,7 @@ class SingleFileCollectionStorage(FileGroupCollectionStorage):
         self._eid_field = None
         self._cid_field = field_mapping["collection_id"]
 
-class TomoPowerSpectraCollectionSFStorage(_BaseSingleFileCollection):
+class TomoPowerSpectraCollectionSFStorage(FileGroupCollectionStorage):
     """
     Single File storage subclass for tomographic power spectra.
     """
