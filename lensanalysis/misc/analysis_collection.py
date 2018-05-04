@@ -32,13 +32,15 @@ class FeatureProductCollection(object):
     mapping = [(Descriptor.none, "peak_loc", "peak_locations"),
                (Descriptor.tomo, "peak_loc", "tomo_peak_locations"),
                (Descriptor.none, "peak_counts", "peak_counts"),
-               (Descriptor.tomo, "peak_counts", "tomo_peak_counts")]
+               (Descriptor.tomo, "peak_counts", "tomo_peak_counts"),
+               (Descriptor.tomo, "power_spectrum", "tomo_power_spectrum")]
     
     def __init__(self):
         self.peak_locations = None
         self.peak_counts = None
         self.tomo_peak_locations = None
         self.tomo_peak_counts = None
+        self.tomo_power_spectrum = None
 
 class AnalysisProductCollection(object):
     """

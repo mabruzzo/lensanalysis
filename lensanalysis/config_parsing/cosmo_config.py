@@ -180,6 +180,15 @@ def _load_feature_product_storage_collection(path, analysis_collection,
             raise ValueError(("Tomographic Peak Counts storage options not "
                               "specified"))
 
+    storage_method = storage_config.power_spectrum_collection_storage
+    if no_save_config or fp_save_config.tomo_power_spectrum:
+        fpc.tomo_power_spectrum \
+            = _load_single_storage_collection(path, storage_method,
+                                              Descriptor.tomo)
+        if (not no_save_config) and fpc.tomo_peak_counts is None:
+            raise ValueError(("Tomographic Power Spectrum storage options not "
+                              "specified"))
+
     
 def _load_full_storage_collection(path,storage_config,save_config = None):
     """

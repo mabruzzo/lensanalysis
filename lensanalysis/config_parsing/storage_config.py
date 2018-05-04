@@ -3,10 +3,18 @@ import ConfigParser
 from ..misc.enum_definitions import Descriptor
 from ..misc.serialization import ShearMapCollectionFGStorage, \
     ConvergenceMapCollectionFGStorage, PeakLocCollectionFGStorage, \
-    PeakCountCollectionFGStorage, FullShearCatFGLoader
+    PeakCountCollectionFGStorage, FullShearCatFGLoader, \
+    TomoPowerSpectraCollectionSFStorage
 
 from ..misc.fname_formatter import BaseFnameFormatter, \
     RealizationBinnedSubdirectoryFormatter
+
+# this is a dictionary of analysis object names of the features that only use a
+# single file for the storage of tomographic collections.
+#
+single_file_storage = {"power_spectrum": (None,
+                                          TomoPowerSpectraCollectionSFStorage)}
+
 
 def _set_defaults_dynamically(config, section, defaults):
     for elem in defaults:
@@ -258,11 +266,29 @@ def _create_collection_storage(descriptors,root_dir,section_name,
                                                             allow_sub_dir=True)
 
     if Descriptor.tomo in descriptors:
-        nbins = config.getint("General","num_tomo_bins")
-        assert nbins>1
+        if isinstance(storage_class,basestring):
+            if storage_class not in single_file_storage:
+                raise ValueError("{:s} is not in single_file_storage")
+            val = single_file_storage[storage_class]
+            if val[1] is None:
+                raise ValueError("There is no tomographic option for "
+                                 "{:s}".format(storage_class))
+            storage_class = val[1]
+            nbins = 1
+        else:
+            nbins = config.getint("General","num_tomo_bins")
+            assert nbins>1
         result = storage_class(fname_formatter, storage_dir, nbins,
                                field_mapping)
     else:
+        if isinstance(storage_class,basestring):
+            if storage_class not in single_file_storage:
+                raise ValueError("{:s} is not in single_file_storage")
+            val = single_file_storage[storage_class]
+            if val[0] is None:
+                raise ValueError("There is no non-tomographic option for "
+                                 "{:s}".format(storage_class))
+            storage_class = val[0]
         result = storage_class(fname_formatter, storage_dir, 1, field_mapping)
     return result
 
@@ -328,11 +354,21 @@ class StorageConfig(object):
                                           storage_option_suffix = None,
                                           noiseless_prefix = False)
 
+    def power_spectrum_collection_storage(self,descriptors,root_dir):
+        _check_unallowed_descriptors(descriptors,Descriptor.smoothed_noisy)
+        return _create_collection_storage(descriptors, root_dir,
+                                          "FeatureProducts",
+                                          self._config_parser,
+                                          "power_spectrum",
+                                          core_option_name = "power_spectrum",
+                                          storage_option_suffix = None,
+                                          noiseless_prefix = False)
+
 
 def _construct_shear_fname_formatter(config, section):
     return _build_fname_formatter(section, "shear_cat",
                                   _shear_cat_suffix_dict, config,
-                                  allow_sub_dir=True,
+                                  allow_sub_dir = True,
                                   forced_tomo = True)
 
 def _pos_fname_formatter(config,section):
