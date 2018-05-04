@@ -18,12 +18,17 @@ single_descriptor_flags = [("tomo", Descriptor.tomo),
 # gives the valid descriptors for the different analysis objects
 analysis_object_descriptors = {"conv_map" : (Descriptor.tomo,
                                              Descriptor.smoothed,
-                                             Descriptor.noisy),
+                                             Descriptor.noisy,
+                                             Descriptor.none),
                                "shear_map" : (Descriptor.tomo,
-                                              Descriptor.noisy),
-                               "shear_cat" : (),
-                               "peak_loc" : (Descriptor.tomo,),
-                               "peak_counts" : (Descriptor.tomo,)}
+                                              Descriptor.noisy,
+                                              Descriptor.none),
+                               "shear_cat" : (Descriptor.none),
+                               "peak_loc" : (Descriptor.tomo,
+                                             Descriptor.none),
+                               "peak_counts" : (Descriptor.tomo,
+                                                Descriptor.none),
+                               "power_spectrum" : (Descriptor.tomo)}
 
 descriptor_mapping = {Descriptor.tomo : ["tomo","tomographic"],
                       Descriptor.smoothed : ["smooth","smoothed"],

@@ -113,22 +113,29 @@ class SafeNameParser(NameParser):
         self._extra_requirments = None
 
     def parse_name(self,name):
-        out = _parse_name(name, self._analysis_descr_map.keys())
+        parsed = _parse_name(name, self._analysis_descr_map.keys())
 
-        invalid_descr =_check_valid_descriptors(out[0], out[1],
+        if out[0] == ():
+            with_full_flags = (Descriptor.none,out[1])
+        else:
+            with_full_flags = parsed
+
+        invalid_descr =_check_valid_descriptors(with_full_flags[0],
+                                                with_full_flags[1],
                                                 self._analysis_descr_map,
                                                 must_contain = True)
         extra_requirements = self.get_extra_requirements()
         if invalid_descr is not None:
             raise ValueError(("{:s} is not a valid descriptor of "
                               "{:s}.").format(str(invalid_descr),
-                                              out[1]))
+                                              with_full_flags[1]))
         if extra_requirements is not None:
-            invalid_descr =_check_valid_descriptors(out[0], out[1],
+            invalid_descr =_check_valid_descriptors(with_full_flags[0],
+                                                    with_full_flags[1],
                                                     extra_requirements,
                                                     must_contain = False)
             if invalid_descr is not None:
                 raise ValueError(("{:s} is not a valid descriptor of "
                                   "{:s}.").format(str(invalid_descr),
-                                                  out[1]))
-        return out
+                                                  with_full_flags[1]))
+        return parsed
