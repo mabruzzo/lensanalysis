@@ -16,7 +16,8 @@ import pandas as pd
 from mpi4py import MPI
 from lenstools.utils import MPIWhirlPool
 
-def build_ensembles(paths,prefix=0,bin_num = None,combine_neighbor = False):
+def build_ensembles(paths,prefix=0,bin_num = None,
+                    combine_neighbor = 0):
     """
     bin_num is one-indexed!
     """
@@ -25,9 +26,14 @@ def build_ensembles(paths,prefix=0,bin_num = None,combine_neighbor = False):
     for i,path in enumerate(paths):
         cosmo_name = path.split('/')[-1][prefix:-4]
         temp = np.load(path)
-        if combine_neighbor:
-            assert(temp.shape[-1] % 2 == 0)
-            temp = temp[...,::2]+temp[...,1::2]
+        if combine_neighbor>=1:
+            assert(temp.shape[-1] % combine_neighbor == 0)
+            
+            new_shape = [elem for elem in temp.shape[:-1]]
+            new_shape.append(temp.shape[-1]//combine_neighbor)
+            new_shape.append(combine_neighbor)
+
+            temp = np.sum(temp.reshape(new_shape),axis=-1)
         if bin_num is not None and len(temp.shape)>1:
             e = Ensemble(temp[bin_num-1,:])
         elif len(temp.shape)>1:
@@ -42,7 +48,6 @@ def build_ensembles(paths,prefix=0,bin_num = None,combine_neighbor = False):
         ensembles.append(e)
         cosmo_names.append(cosmo_name)
     return cosmo_names,ensembles
-
 
 def parse_parameter_vals(names):
     omega_ms = []
@@ -60,13 +65,15 @@ def parse_parameter_vals(names):
 
 def construct_emulator(feature_paths, parameter_index, feature_index = None,
                        fname_prefix=None, bin_num=None, pca = None,
-                       feature_name = 'features'):
+                       feature_name = 'features',combine_neighbor = 0):
     """
     Loads the features from the sampled cosmologies from a numpy array and then 
     constructs the emulator.
     """
-    cosmo_names, ensembles = build_ensembles(feature_paths,prefix=fname_prefix,
-                                             bin_num = bin_num)
+    cosmo_names, ensembles = build_ensembles(feature_paths,
+                                             prefix = fname_prefix,
+                                             bin_num = bin_num,
+                                             combine_neighbor =combine_neighbor)
     om_m, om_l, w, si = parse_parameter_vals(cosmo_names)
     temp = np.column_stack((om_m,om_l))
     assert (np.sum(temp,axis=1)==1).all()
@@ -78,7 +85,13 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
         features[i,:] = ensemble.as_matrix()[:,0]
 
     if pca is not None:
-        pca_basis = Ensemble(features).principalComponents()
+        # we are setting the scale to the mean, as was done in Andrea's LSST
+        # tomography paper. The division by np.sqrt(features.shape[0]-1.0)
+        # is necessary as the pca handler internally multiplies the scale by
+        # this quantity.
+        feat = Ensemble(features)
+        scale = (feat.mean(0)/np.sqrt(float(feat.shape[0])-1.0))
+        pca_basis = feat.principalComponents(scale = scale)
         features = pca_transform(features,pca_basis,pca).values
         feature_index = None
     else:
@@ -104,17 +117,16 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
 
 def build_covariance_matrix(path, emulator_columns, fname_prefix=None,
                             bin_num=None, pca_basis = None, pca = None,
-                            estimation_correction = True):
-    fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num)[1][0]
+                            estimation_correction = True, combine_neighbor = 0):
+    fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num,
+                               combine_neighbor = combine_neighbor)[1][0]
     if pca_basis is not None or pca is not None:
         if pca_basis is not None and pca is not None:
             fiducial = Ensemble(pca_transform(fiducial.values.astype('float64'),
                                               pca_basis,pca).values)
         else:
             raise ValueError()
-    features_covariance = Ensemble(fiducial.covariance().as_matrix(),
-                                   index=emulator_columns,
-                                   columns=emulator_columns)
+    
 
     """
     Now we will correct the covariance matrix for the fact that it was 
@@ -144,16 +156,25 @@ def build_covariance_matrix(path, emulator_columns, fname_prefix=None,
     if estimation_correction:
         nr, d = float(fiducial.values.shape[0]), float(fiducial.values.shape[1])
         # I have confirmed this updates values in place
-        features_covariance.values*= (nr-1.)/(nr-d-2.)
+        temp = (nr-1.)/(nr-d-2.)
+        features_covariance = Ensemble(fiducial.covariance().as_matrix()*temp,
+                                       index=emulator_columns,
+                                       columns=emulator_columns)
+    else:
+        features_covariance = Ensemble(fiducial.covariance().as_matrix(),
+                                       index=emulator_columns,
+                                       columns=emulator_columns)
     return features_covariance
 
 def load_fiducial(path, emulator_columns, fname_prefix=None, bin_num=None,
-                  pca_basis = None, pca = None, indiv_realization = None):
+                  pca_basis = None, pca = None, indiv_realization = None,
+                  combine_neighbor = 0):
     """
     Loads the fiducial cosmology from a numpy array and constructs the 
     "observed features" using the correct column names to match the emulator.
     """
-    fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num)[1][0]
+    fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num,
+                               combine_neighbor = combine_neighbor)[1][0]
     if indiv_realization is not None:
         raise NotImplementedError("Not currently capable of handling "
                                   "individual realizations")
@@ -238,6 +259,17 @@ def load_config_details(cmd_args):
     assert num_peak_bins>0
     out['num_peak_bins'] = num_peak_bins
 
+    if config.has_option("Details","combine_neighboring_bins"):
+        combine_neighboring_bins = config.getint("Details",
+                                                 "combine_neighboring_bins")
+        if combine_neighboring_bins <0:
+            raise ValueError()
+        elif combine_neighboring_bins>1:
+            assert num_peak_bins % combine_neighboring_bins ==0
+        out['combine_neighboring_bins'] = combine_neighboring_bins
+    else:
+        out['combine_neighboring_bins'] = 0
+    
     num_tomo_bins = config.getint("Details","num_tomo_bins")
     assert num_peak_bins>0
     out['num_tomo_bins'] = num_tomo_bins
@@ -345,26 +377,35 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
     cov_path = config_dict['covariance_cosmo_path']
     fid_path = config_dict['fiducial_obs_path']
 
+
+    num_peak_bins = config_dict["num_peak_bins"]
+    combine_neighbor = config_dict['combine_neighboring_bins']
+    if combine_neighbor >1:
+        # sanity check
+        assert num_peak_bins %combine_neighbor == 0
+        num_peak_bins = num_peak_bins //combine_neighbor
+
     for tomo_bin in tomo_bins:
         if tomo_bin == -1:
             feature_name = "TomoPeaks"
             feature_index = []
             for i in range(1,config_dict["num_tomo_bins"]+1):
-                for j in range(config_dict["num_peak_bins"]):
+                for j in range(num_peak_bins):
                     feature_index.append("z{:d}_{:d}".format(i,j))
             bin_num = None
             
         else:
             feature_name = "z{:02d}".format(tomo_bin)
             feature_index = ["z{:d}_{:d}".format(tomo_bin,j) \
-                             for j in range(config_dict["num_peak_bins"])]
+                             for j in range(num_peak_bins)]
             bin_num = tomo_bin
         # build the emulator
         temp = construct_emulator(config_dict['paths'], parameter_index,
                                   feature_index = feature_index,
                                   fname_prefix=fname_prefix,
                                   bin_num=bin_num, pca = pca_bins,
-                                  feature_name = feature_name)
+                                  feature_name = feature_name,
+                                  combine_neighbor = combine_neighbor)
         emulator, ensemble_params,pca_basis = temp
 
         # load in the covariance matrix
@@ -374,12 +415,15 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                                                       fname_prefix=0,
                                                       bin_num=bin_num,
                                                       pca_basis = pca_basis,
-                                                      pca = pca_bins)
+                                                      pca = pca_bins,
+                                                      combine_neighbor = \
+                                                      combine_neighbor)
         # load in the observation
         fiducial_obs = load_fiducial(fid_path, emulator_col, fname_prefix=0,
                                      bin_num = bin_num, pca_basis = pca_basis,
                                      pca = pca_bins,
-                                     indiv_realization = realization_ind)
+                                     indiv_realization = realization_ind,
+                                     combine_neighbor = combine_neighbor)
             
         specs[feature_name] = {"emulator" : emulator,
                                "data" : fiducial_obs,
@@ -403,7 +447,7 @@ def driver(cmd_args):
         # probably should make the following adjustable
         # create the grid on which we will interpolate - probably should make
         # this customizable
-        num_axis = 15
+        num_axis = 100
 
         p = np.array(np.meshgrid(np.linspace(0.2,0.5,num_axis),
                                  np.linspace(-1.5,-0.5,num_axis),
