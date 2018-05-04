@@ -11,7 +11,7 @@ from lenstools import ShearMap, ConvergenceMap
 from lenstools.catalog import ShearCatalog
 
 from fname_formatter import AbstractFnameFormatter
-from feature_object import PeakLocations, PeakCounts
+from feature_object import PeakLocations, PeakCounts, TomoPowerSpectra
 
 
 def write_peak_loc_npy(fname,peak_loc):
@@ -34,6 +34,16 @@ def write_peak_count_npy(fname,peak_count):
 
 def load_peak_count_npy(fname):
     return PeakCounts(np.load(fname))
+
+def write_tomo_power_spectra_npy(fname,tomo_power_spectra):
+    np.save(fname,tomo_power_spectra)
+
+def read_tomo_power_spectra_npy(fname):
+    power = np.load(fname)
+    num_spectra = power.shape[0]
+    num_tomo_bins = (int(sqrt(8*triangle_num+1))-1)//2
+
+    return TomoPowerSpectra(power,num_tomo_bins)
 
 class CollectionSaver(object):
     __metaclass__ = ABCMeta
@@ -410,3 +420,60 @@ class FullShearCatFGLoader(_BaseFileGroupCollection):
             out.append(temp)
         return out
 
+class SingleFileCollectionStorage(FileGroupCollectionStorage):
+    """
+    Base class for representing elements of collections in an individual file.
+
+    It uses 2 class variables to contain callables that read and write 
+    individual elements in the collections that this is storage for. These are 
+    to be overwritten in subclasses.
+
+    Parameters
+    ----------
+    fname_formatter : AbstractFnameFormatter
+        An object with the method format_fname that formats the file name
+    root_dir : str
+        The root directory in which all of the files are stored
+    num_elements : int
+        The number of entries of all collections stored here
+    field_mapping : dict
+        A dictionary that maps "collection_id" to the field 
+        of property of fname_formatter.
+
+    Notes
+    ------
+    Although, we have chosen to make this class a subclass of 
+    FileGroupCollectionStorage for now, it should not be. We get away with this
+    by internally using methods that assume that assume that we are always 
+    looking for a collection of 1 file. The class hierarchy should 
+    be revisited and refactored
+    """
+
+    def __init__(self, fname_formatter, root_dir, field_mapping):
+        if isinstance(fname_formatter,AbstractFnameFormatter):
+            self._fname_formatter = fname_formatter
+        else:
+            raise TypeError("fname_formatter must be a (virtual) subclass of "
+                            "the abc, AbstractFnameFormatter")
+
+        self.root_dir = root_dir
+        if not isinstance(num_elements,int):
+            raise TypeError("num_elements must be an int")
+        elif num_elements<=0:
+            raise ValueError("num_elements must be at leat 1")
+
+        if "element_id" in field_mapping:
+            raise ValueError("SingleFileCollectionStorage instances should not "
+                             "have an 'element_id' key in field_mapping")
+        _check_field_mapping(fname_formatter, 1, field_mapping)
+
+        self._num_elements = 1
+        self._eid_field = None
+        self._cid_field = field_mapping["collection_id"]
+
+class TomoPowerSpectraCollectionSFStorage(_BaseSingleFileCollection):
+    """
+    Single File storage subclass for tomographic power spectra.
+    """
+    element_writer = staticmethod(write_tomo_power_spectra_npy)
+    element_reader = staticmethod(read_tomo_power_spectra_npy)

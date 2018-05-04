@@ -1,16 +1,22 @@
 High Priority
 =============
 
-New Features
-  - Add a new subclass of IntermediateStep - RebinShearCat and update the
-    procedure construction so that can be made use of.
-
 Low-Mid Priority
 ================
 
 Refactoring
   - Come up with a way to keep track of the analysis object names in accordance
     with the open/closed principle
+  - Standardize the difference between Feature Types (those that generalize to
+    tomography and those that don't).
+  - Refactor the class hierarchy in serialization.py. This mainly relates to
+    the implementation of SingleFileCollectionStorage. Presently it is a
+    subclass of FileGroupCollectionStorage, because it can reuse all of the
+    methods with only a minor tweak during instantiation, but this does not
+    really follow a parent-child relationship. (SingleFileCollectionStorage is
+    not a special case of FileGroupCollectionStorage - in fact it is an
+    entirely different approach to storage necessitated by certain types of
+    features)
   - refactor the building of the procedure to be in accordance with the open
     closed principle
   - Update the FnameFormatter class to take advantage of keyword arguments from
@@ -42,5 +48,3 @@ New Features
   - "Emulator-like Class" that interpolates the chi-squared values
   - add option to compute features without adding noise (or objects that
     already have noise).
-  - add option to save smoothed shear maps. Then refactor the smoothing of
-    shear maps to not occur immediately before the Kaiser-Squires transform.
