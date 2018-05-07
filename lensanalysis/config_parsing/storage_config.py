@@ -149,12 +149,13 @@ def _build_subdir_binned_realization_formatter(fname_formatter, config, section,
 
 def _build_fname_formatter(section, option_prefix, suffix_dict, config,
                            subdir_section = None, subdir_prefix = None,
-                           allow_sub_dir=False, forced_tomo = False):
+                           allow_sub_dir=False, forced_tomo = False,
+                           file_group = True):
     tomo = option_prefix[:4] == 'tomo' or forced_tomo
 
     fname_option_name = _option_builder(option_prefix, suffix_dict['fname'])
     fname_template = config.get(section, fname_option_name)
-    if not tomo:
+    if (not file_group) or (not tomo):
         fname_formatter = BaseFnameFormatter(fname_template,"realization")
         field_mapping = {"collection_id":"realization"}
     else:
@@ -180,7 +181,7 @@ def _build_fname_formatter(section, option_prefix, suffix_dict, config,
         else:
             fields = ["realization", "bin"]
         fname_formatter = BaseFnameFormatter(fname_template, fields)
-
+    if tomo:
         if allow_sub_dir:
             if subdir_section is None:
                 subdir_section = section
@@ -257,13 +258,19 @@ def _create_collection_storage(descriptors,root_dir,section_name,
 
 
     option_prefix = _option_builder(string_prefix, core_option_name)
+
+    # strings are only passed for storage_class if the analysis object uses 
+    # single_file_storage
+    file_group = not isinstance(storage_class,basestring)
     # Find the fname_template
     fname_formatter, field_mapping = _build_fname_formatter(section_name,
                                                             option_prefix,
                                                             _normal_suffix_dict,
                                                             config, "General",
                                                             "tomo",
-                                                            allow_sub_dir=True)
+                                                            allow_sub_dir=True,
+                                                            file_group \
+                                                            = file_group)
 
     if Descriptor.tomo in descriptors:
         if isinstance(storage_class,basestring):

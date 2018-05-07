@@ -189,8 +189,8 @@ class TomoPowerSpectra(FeatureObject):
             raise ValueError("i must be at least 0 but less than "
                              "{:d}".format(self.num_tomo_bins))
         if j < i or j >= self.num_tomo_bins:
-            raise ValueError("j must be at least {:d} but less than ".format(i)
-                             "{:d}".format(self.num_tomo_bins))
+            raise ValueError(("j must be at least {:d} but less than "
+                              "{:d}").format(i,self.num_tomo_bins))
         return np.copy(self._power[i*(2*self.num_tomo_bins + 1 - i)//2 + j - i,
                                    :])
 

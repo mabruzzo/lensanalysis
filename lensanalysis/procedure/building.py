@@ -118,12 +118,17 @@ def build_power_spectrum(begin, procedure_config, storage_collection,
         raise ValueError("Power spectra section of procedure configuration is "
                          "not specified.")
 
-    out = CalcTomoPowerSpectra.from_config(ps_config)
+    out = CalcTomoPowerSpectra.from_config(ps_config=config)
 
-    if objects_to_save.feature_products.tomo_peak_locations:
-        storage = storage_collection.feature_products.tomo_peak_locations
+    if objects_to_save.feature_products.tomo_power_spectrum:
+        storage = storage_collection.feature_products.tomo_power_spectrum
         save_step = SaveCollectionEntries(storage)
         out.wrapped_step = save_step
+        objects_to_save.feature_products.tomo_power_spectrum = False
+    else:
+        # sanity check
+        raise RuntimeError("There is no point in constructing the power "
+                           "spectrum if we don't save it")
     return out
 
 def build_smooth_noisy_convergence(begin, procedure_config, storage_collection,
@@ -322,7 +327,7 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
     else:
         feature_step = None
 
-    if save_config.feature_products.tomo_power_spectrum:
+    if tomo and objects_to_save.feature_products.tomo_power_spectrum:
         other_feat_step = build_power_spectrum(begin_object, procedure_config,
                                                storage_collection,
                                                objects_to_save,

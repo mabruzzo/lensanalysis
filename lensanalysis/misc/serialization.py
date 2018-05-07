@@ -449,7 +449,7 @@ class SingleFileCollectionStorage(FileGroupCollectionStorage):
     be revisited and refactored
     """
 
-    def __init__(self, fname_formatter, root_dir, field_mapping):
+    def __init__(self, fname_formatter, root_dir, num_elements, field_mapping):
         if isinstance(fname_formatter,AbstractFnameFormatter):
             self._fname_formatter = fname_formatter
         else:
@@ -471,7 +471,7 @@ class SingleFileCollectionStorage(FileGroupCollectionStorage):
         self._eid_field = None
         self._cid_field = field_mapping["collection_id"]
 
-class TomoPowerSpectraCollectionSFStorage(FileGroupCollectionStorage):
+class TomoPowerSpectraCollectionSFStorage(SingleFileCollectionStorage):
     """
     Single File storage subclass for tomographic power spectra.
     """

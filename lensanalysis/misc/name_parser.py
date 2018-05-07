@@ -115,7 +115,7 @@ class SafeNameParser(NameParser):
     def parse_name(self,name):
         parsed = _parse_name(name, self._analysis_descr_map.keys())
 
-        if out[0] == ():
+        if parsed[0] == ():
             with_full_flags = (Descriptor.none,out[1])
         else:
             with_full_flags = parsed

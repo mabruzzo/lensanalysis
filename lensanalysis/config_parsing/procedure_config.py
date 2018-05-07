@@ -50,8 +50,8 @@ def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma,
         raise ValueError(("{:s}_min must be less than "
                           "{:s}_max").format(option_prefix, option_prefix))
     if bin_count <= 0:
-        raise ValueError("{:s}_count ".format(option_prefix)
-                         "must be at least one")
+        raise ValueError(("{:s}_count must be at least "
+                          "one").format(option_prefix))
     elif bin_count == 1:
         return np.array([bin_min,bin_max]) * sigma
 

@@ -43,7 +43,7 @@ class CalcTomoPowerSpectra(ConversionProcedureStep):
             raise ValueError("l_edges must have shape (N,)")
         elif l_edges.shape[0]<2:
             raise ValueError("l_edges must have at least 2 entries")
-        elif (np.diff(l_edges)<=0):
+        elif (np.diff(l_edges)<=0).any():
             raise ValueError("l_edges must monotonically increase.")
 
         self.l_edges = l_edges
@@ -85,7 +85,7 @@ class CalcTomoPowerSpectra(ConversionProcedureStep):
                     raise ValueError("side_angles of convergence maps of "
                                      "different tomographic bins are not "
                                      "constant.")
-                elif shape != conv.shape:
+                elif shape != conv.data.shape:
                     raise ValueError("the shapes of convergence maps of "
                                      "different tomographic bins are not "
                                      "constant.")
@@ -101,7 +101,7 @@ class CalcTomoPowerSpectra(ConversionProcedureStep):
 
         for i,(ft_map1,sc) in enumerate(zip(ft_maps,sc_l)):
             for ft_map2 in ft_maps[i:]:
-                spectra.appent(_topology.rfft2_azimuthal(ft_map1, ft_map2,
+                spectra.append(_topology.rfft2_azimuthal(ft_map1, ft_map2,
                                                          side_angle, l_edges,
                                                          sc))
         return [TomoPowerSpectra(spectra,len(data_object))]
