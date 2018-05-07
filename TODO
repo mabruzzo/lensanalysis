@@ -33,7 +33,7 @@ Refactoring
     ProcedureConfig. Examples of areas to do this for include: Rebinning and
     Peak Count Bins. By doing this for measurable features, it should be a step
     in the right direction for bringing the configurations into accordance with
-    the open/closed principle
+    the open/closed principle. We have already done this for PowerSpectrumConfig
   - Subclass ConfigParser.SafeConfigParser or another configParser subclass to
     return absolute paths relative to the ConfigParser's save location instead
     of using get_abs_paths.

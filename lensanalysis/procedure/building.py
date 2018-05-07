@@ -8,6 +8,7 @@ from .io_step import SaveCollectionEntries
 from .smoothing import ConvMapSmoothing
 from .tomo_binning import PseudoPhotozRebinner, ShearCatRebinning, \
     LazyStaticShearCatRebinning
+from .power_spectrum import CalcTomoPowerSpectra
 from ..misc.analysis_collection import default_value_UAPC
 from ..misc.enum_definitions import Descriptor
 
@@ -106,6 +107,24 @@ def build_peak_counting(begin, procedure_config, storage_collection,
         step.wrapped_step = second_step
     return step
 
+def build_power_spectrum(begin, procedure_config, storage_collection,
+                         objects_to_save, tomo = False):
+    if not tomo:
+        raise NotImplementedError("We have not implemented non-tomographic "
+                                  "power spectra.")
+    try:
+        config = procedure_config.feature_config['power_spectrum']
+    except KeyError:
+        raise ValueError("Power spectra section of procedure configuration is "
+                         "not specified.")
+
+    out = CalcTomoPowerSpectra.from_config(ps_config)
+
+    if objects_to_save.feature_products.tomo_peak_locations:
+        storage = storage_collection.feature_products.tomo_peak_locations
+        save_step = SaveCollectionEntries(storage)
+        out.wrapped_step = save_step
+    return out
 
 def build_smooth_noisy_convergence(begin, procedure_config, storage_collection,
                                    objects_to_save, feature_step = None,
@@ -302,6 +321,19 @@ def _build_procedure_from_shear_cat(begin_object, procedure_config,
             return feature_step
     else:
         feature_step = None
+
+    if save_config.feature_products.tomo_power_spectrum:
+        other_feat_step = build_power_spectrum(begin_object, procedure_config,
+                                               storage_collection,
+                                               objects_to_save,
+                                               tomo = tomo)
+        if feature_step is None:
+            feature_step = other_feat_step
+        else:
+            temp = CompositeProcedureStep()
+            temp.add(feature_step)
+            temp.add(other_feat_step)
+            feature_step = temp
 
     if begin_object == (Descriptor.smoothed_noisy | extra_descr, "conv_map"):
         return feature_step

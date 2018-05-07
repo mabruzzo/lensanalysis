@@ -23,16 +23,64 @@ class SequentialArgConfigParser(ConfigParser.SafeConfigParser):
     def getfloat_list(self,section,option):
         return _get_uniform_type_list(self, section,option,float)
 
-def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma):
+
+class BaseProcedureConfig(object):
+    """
+    Base class for configuration objects related to the general procedure.
+    """
+    req_sections = []
+    
+    @classmethod
+    def from_fname(cls,fname):
+        config_parser = SequentialArgConfigParser()
+        config_parser.read(fname)
+        return cls(config_parser,fname)
+
+    def __init__(self,procedure_config,config_fname):
+        assert isinstance(procedure_config,SequentialArgConfigParser)
+        self._config = procedure_config
+        self._config_fname = config_fname
+
+        for section in self.req_sections:
+            assert self._config.has_section(section)
+
+def _build_peak_count_bins(bin_min, bin_max, bin_count,sigma,
+                           option_prefix= 'bin'):
     if bin_min>=bin_max:
-        raise ValueError("bin_min must be less than bin_max")
+        raise ValueError(("{:s}_min must be less than "
+                          "{:s}_max").format(option_prefix, option_prefix))
     if bin_count <= 0:
-        raise ValueError("bin_count must be at least one")
+        raise ValueError("{:s}_count ".format(option_prefix)
+                         "must be at least one")
     elif bin_count == 1:
         return np.array([bin_min,bin_max]) * sigma
 
     return np.linspace(bin_min, bin_max, num = bin_count + 1,
                        endpoint = True) * sigma
+
+class PowerSpectrumConfig(BaseProcedureConfig):
+
+    """
+    Going forward we will represent the configuration of features separately 
+    from the overall configuration.
+    """
+
+    req_sections = ["PowerSpectrum"]
+
+    def get_tomo_multipole_bands(self):
+        config = self._config
+        if ((not config.has_option("PowerSpectrum", "tomo_band_count")) or 
+            (not config.has_option("PowerSpectrum", "tomo_band_max")) or
+            (not config.has_option("PowerSpectrum", "tomo_band_min"))):
+            raise ValueError("PowerSpectrum section must have the "
+                             "tomo_band_max, tomo_band_min, and "
+                             "tomo_band_count, options.")
+
+        band_min = config.getfloat("PowerSpectrum","tomo_band_min")
+        band_max = config.getfloat("PowerSpectrum","tomo_band_max")
+        band_count = config.getint("PowerSpectrum","tomo_band_count")
+        return _build_peak_count_bins(band_min, band_max, band_count, 1.0,
+                                      option_prefix= 'tomo_band')
 
 def _load_indiv_bin_vals(config, section, option, num_bins, val_type = int):
     """
@@ -76,16 +124,30 @@ def check_num_fields(template):
             num +=1
     return num
 
-class ProcedureConfig(object):
+def _construct_feature_configs(parser, fname, feature_config_l):
+    out = {}
+    for feature_name, feature_class in feature_config_l:
+        include_feature = True
+        for req_section in feature_class.req_sections:
+            if not parser.has_section(req_section):
+                include_feature = False
+        if include_feature:
+            out[feature_name] = feature_class.from_fname(fname)
+    return out
+
+class ProcedureConfig(BaseProcedureConfig):
     """
     We should probably break this up into individual objects that tracks 
     configuration of different tasks.
     """
+    feature_config_l = [('power_spectrum',PowerSpectrumConfig)]
 
     def __init__(self,procedure_config,config_fname):
-        assert isinstance(procedure_config,SequentialArgConfigParser)
-        self._config = procedure_config
-        self._config_fname = config_fname
+        super(ProcedureConfig, self).__init__(procedure_config,config_fname)
+
+        self.feature_config = _construct_feature_configs(procedure_config,
+                                                         config_fname,
+                                                         self.feature_config_l)
 
     def has_peak_count_bins(self):
         return self._config.has_section("PeakCountBins")
@@ -319,11 +381,7 @@ class ProcedureConfig(object):
                 out.append(object_name)
         return out
 
-    @classmethod
-    def from_fname(cls,fname):
-        config_parser = SequentialArgConfigParser()
-        config_parser.read(fname)
-        return cls(config_parser,fname)
+    
 
     def has_non_ppz_rebinning(self):
         """

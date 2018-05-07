@@ -53,6 +53,10 @@ class CalcTomoPowerSpectra(ConversionProcedureStep):
         else:
             raise ValueError("scale must either be None or callable.")
 
+    @classmethod
+    def from_config(cls,ps_config):
+        return cls(ps_config.get_tomo_multipole_bands())
+
     def conversion_operation(self,data_object,packet):
 
         scale = self.scale
