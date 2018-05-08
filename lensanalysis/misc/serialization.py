@@ -36,7 +36,7 @@ def load_peak_count_npy(fname):
     return PeakCounts(np.load(fname))
 
 def write_tomo_power_spectra_npy(fname,tomo_power_spectra):
-    np.save(fname,tomo_power_spectra)
+    np.save(fname,tomo_power_spectra.power)
 
 def read_tomo_power_spectra_npy(fname):
     power = np.load(fname)
