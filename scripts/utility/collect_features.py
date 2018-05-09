@@ -96,11 +96,11 @@ def _consolidate_helper(start, stop, loader, feature_retriever):
         temp.append(feature_retriever(feature_col))
     out = np.array(temp)
 
-    if len(out) == 2:
+    if len(out.shape) == 2:
         # this is non-tomographic
         # we need to add a third axis
         return np.array([out])
-    elif len(out) == 3:
+    elif len(out.shape) == 3:
         # if we are using single file storage, then the array we have
         # constructed has different tomographic bins along axis 1 and
         # different realizations along axis 0. These need to be swapped
