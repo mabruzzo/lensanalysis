@@ -9,6 +9,7 @@ import numpy as np
 from lensanalysis.config_parsing.cosmo_config import \
     CosmoCollectionConfigBuilder
 from lensanalysis.misc.analysis_collection import default_value_UAPC
+from lensanalysis.misc.enum_definitions import Descriptor
 
 """
 This script is designed to collect all of the computed peak counts.
@@ -21,7 +22,11 @@ parser.add_argument("--name",dest = "names", nargs='+', default = [],
                     action = 'store',
                     help = ("The name of cosmology to post-process. If this is "
                             "none, then it processes all cosmologies"))
-
+parser.add_argument("-f","--feature",dest="feature", action = "store",
+                    required = True,
+                    help = ("Indicates the type of feature we want to collect. "
+                            "Currenty allowed values include: 'peak_counts' "
+                            "and 'power_spectrum'"))
 parser.add_argument("--fiducial",dest = "fiducial", action = "store_true",
                     default = False,
                     help = ("Specify that the analysis is being performed on "
@@ -42,12 +47,10 @@ parser.add_argument("--max",dest = "max_realization", action = "store",
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
                             "realization to be processed."))
-
 parser.add_argument("--template", dest = "template", action = "store",
                     default = None, required = True,
                     help = ("The template with which the output file(s) should "
                             "be saved."))
-
 parser.add_argument("--tomo", dest = "tomo", action = "store_true",
                     default = False,
                     help = ("Indicates if the peak counts are tomographic."))
@@ -60,6 +63,7 @@ parser.add_argument("--mp_collections", dest = "mp_collections",
                             "collecting different peak_count collections.\n"
                             "This expects an integer number of processes "
                             "greater than 1."))
+
 
 def check_num_fields(template):
     iterable = Formatter().parse(template)
@@ -79,46 +83,127 @@ def check_template(template,num_names):
     assert os.path.isdir(dir_name)
 
 
-def collector(fname, loader, start, stop, average = False, tomo = True,
-              num_tomo_bins = 0):
 
-    if tomo:
-        temp = [[] for i in range(num_tomo_bins)]
-    else:
-        temp = []
-
+def _consolidate_helper(start, stop, loader, feature_retriever):
+    temp = []
+    assert stop - start > 1
     for i in xrange(start,stop):
         try:
-            peak_count_col = loader.load(i)
+            feature_col = loader.load(i)
         except ValueError:
             print "Error occured for realization {:d}".format(i)
-            print "Was supposed to be saved in: {:s}".format(fname)
-            raise 
-        if tomo:
-            for j,peak_counts in enumerate(peak_count_col):
-                # check to make sure we get the right shape
-                temp[j].append(peak_counts._counts)
-        else:
-            temp.append(peak_count_col[0]._counts)
+            raise
+        temp.append(feature_retriever(feature_col))
+    out = np.array(temp)
 
-    if tomo:
-        out = []
-        for collection in temp:
-            if average:
-                out.append(np.mean(np.stack(collection),axis = 0))
-            else:
-                out.append(np.stack(collection))
-        result = np.stack(out)
+    if len(out) == 2:
+        # this is non-tomographic
+        # we need to add a third axis
+        return np.array([out])
+    elif len(out) == 3:
+        # if we are using single file storage, then the array we have
+        # constructed has different tomographic bins along axis 1 and
+        # different realizations along axis 0. These need to be swapped
+        # so that we return the expected result
+        return np.swapaxes(out,0,1)
     else:
-        if average:
-            result = np.average(np.stack(temp),axis=0)
-        else:
-            result = np.stack(temp)
+        raise RuntimeError("All results should be 2D or 3D")
+    
+class Consolidator(object):
+    """
+    This object is designed to consolidate feature sets into a stacked array of 
+    3 Dimensions
+
+    Different entries along axis 0 correspond to data from different 
+    tomographic bins (or bin combinations).
+    Different entries along axis 1 corresponds to different Realizations.
+    Different entires along axis 2 correspond to components to components of a 
+    data vector along within a given tomographic bin (or bin combination).
+    """
+
+    def __init__(self, attr_name):
+        self.attr_name = attr_name
+
+    def consolidate(self,loader,start,stop):
+        raise NotImplementedError()
+
+class SingleFileConsolidator(Consolidator):
+    """
+    This handles feature object collections saved to a single file.
+
+    Example: Tomographic Power Spectrum
+    """
+
+    def consolidate(self,loader,start,stop):
+        attr_name = self.attr_name
+        func = lambda feature_col : getattr(feature_col, attr_name)
+        return _consolidate_helper(start, stop, loader, func)
+        
+
+class FileGroupConsolidator(Consolidator):
+    """
+    This handles feature object collections saved to groups of files.
+
+    Example: Peak Count histogram
+    """
+
+    def consolidate(self,loader,start,stop):
+        attr_name = self.attr_name
+        func = lambda feature_col : [getattr(elem, attr_name) for elem in \
+                                     feature_col]
+        return _consolidate_helper(start, stop, loader, func)
+
+# Entries of the dictionary are 3 elements
+# 1st - If the feature allows non-tomographic versions
+# 2nd - If the feature allows tomographic versions
+# 3rd - An initialized Consolidator object
+valid_features = {"power_spectrum" : (False,True,
+                                      SingleFileConsolidator('_power')),
+                  "peak_counts" : (True,True,
+                                   SingleFileConsolidator('_counts'))}
+
+def get_feature_name(cmd_args):
+    feature_name = cmd_args.feature
+    assert feature_name in valid_features
+
+    if cmd_args.tomo:
+        if not valid_features[feature_name][1]:
+            raise ValueError(("functionallity for {:s} is not defined for "
+                              "tomography").format(feature_name))
+    else:
+        if not valid_features[feature_name][0]:
+            raise ValueError(("functionallity for {:s} is not defined for "
+                              "non-tomography").format(feature_name))
+    return feature_name,valid_features[feature_name][2]
+                    
+def setup_load_config(feature_name, cosmo_storage_col):
+    tomo = cmd_args.tomo
+    load_config = default_value_UAPC(False)
+    if tomo:
+        load_config[(Descriptor.tomo,feature_name)] = True
+        num_tomo_bins = cosmo_storage_col.get_num_tomo_bin()
+    else:
+        load_config[(Descriptor.none,feature_name)] = True
+        num_tomo_bins = 0
+    return tomo, load_config, num_tomo_bins
+
+def collector(fname, loader, start, stop, consolidator, average = False,
+              tomo = True):
+    try:
+        temp = consolidator.consolidate(loader, start, stop)
+    except ValueError:
+        print "Was supposed to be saved in: {:s}".format(fname)
+        raise
+    if average:
+        out = np.mean(temp,axis=1)
+
+    if not tomo:
+        out = out[0,...]
     print result.shape
     np.save(fname,result)
 
 def process_name(name, fname_template, cosmo_storage_col, load_config, start,
-                 stop, tomo, cmd_args, num_tomo_bins):
+                 stop, tomo, cmd_args, num_tomo_bins, consolidator):
     if check_num_fields(fname_template) == 0:
         fname = fname_template
     else:
@@ -131,12 +216,12 @@ def process_name(name, fname_template, cosmo_storage_col, load_config, start,
     else:
         loader = storage.feature_products.peak_counts
 
-    collector(fname, loader, start, stop, cmd_args.average, tomo = tomo,
-              num_tomo_bins = num_tomo_bins)
+    collector(fname, loader, start, stop, consolidator, cmd_args.average,
+              tomo = tomo)
 
 class ProcessNameWrapper(object):
     def __init__(self, fname_template, cosmo_storage_col, load_config, start,
-                 stop, tomo, cmd_args, num_tomo_bins):
+                 stop, tomo, cmd_args, num_tomo_bins, consolidator):
         self.fname_template = fname_template 
         self.cosmo_storage_col = cosmo_storage_col
         self.load_config = load_config 
@@ -145,14 +230,17 @@ class ProcessNameWrapper(object):
         self.tomo = tomo
         self.cmd_args = cmd_args
         self.num_tomo_bins = num_tomo_bins
+        self.consolidator = consolidator
 
     def __call__(self,name):
         process_name(name, self.fname_template, self.cosmo_storage_col, 
                      self.load_config, self.start, self.stop, self.tomo, 
-                     self.cmd_args, self.num_tomo_bins)
+                     self.cmd_args, self.num_tomo_bins, self.consolidator)
 
+
+
+        
 if __name__ == '__main__':
-    print sys.argv
     cmd_args = parser.parse_args()
     print cmd_args.names
     num_names = len(cmd_args.names)
@@ -176,14 +264,9 @@ if __name__ == '__main__':
         assert num_names >0
     fname_template = cmd_args.template
     check_template(fname_template,num_names)
-    tomo = cmd_args.tomo
-    load_config = default_value_UAPC(False)
-    if tomo:
-        load_config.feature_products.tomo_peak_counts = True
-        num_tomo_bins = cosmo_storage_col.get_num_tomo_bin()
-    else:
-        load_config.feature_products.peak_counts = True
-        num_tomo_bins = 0
+    feature_name, consolidator = get_feature_name(cmd_args)
+    tomo, load_config, num_tomo_bins = setup_load_config(feature_name,
+                                                         cosmo_storage_col)
 
     if cmd_args.mp_collections is None:
         num_procs = 1
@@ -192,7 +275,8 @@ if __name__ == '__main__':
         assert num_procs >=1 and isinstance(num_procs,int)
 
     f = ProcessNameWrapper(fname_template, cosmo_storage_col, load_config,
-                           start, stop, tomo, cmd_args, num_tomo_bins)
+                           start, stop, tomo, cmd_args, num_tomo_bins,
+                           consolidator)
     if num_procs == 1 or len(names) == 1:
         map(f,names)
     else:
