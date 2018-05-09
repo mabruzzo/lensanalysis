@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractproperty, abstractmethod
 from collections import Sequence
+from math import sqrt
 import os
 import os.path
 import warnings
@@ -41,7 +42,8 @@ def write_tomo_power_spectra_npy(fname,tomo_power_spectra):
 def read_tomo_power_spectra_npy(fname):
     power = np.load(fname)
     num_spectra = power.shape[0]
-    num_tomo_bins = (int(sqrt(8*triangle_num+1))-1)//2
+    # num_spectra is a triangle number
+    num_tomo_bins = (int(sqrt(8*num_spectra+1))-1)//2
 
     return TomoPowerSpectra(power,num_tomo_bins)
 
@@ -476,4 +478,4 @@ class TomoPowerSpectraCollectionSFStorage(SingleFileCollectionStorage):
     Single File storage subclass for tomographic power spectra.
     """
     element_writer = staticmethod(write_tomo_power_spectra_npy)
-    element_reader = staticmethod(read_tomo_power_spectra_npy)
+    element_loader = staticmethod(read_tomo_power_spectra_npy)

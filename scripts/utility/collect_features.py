@@ -136,7 +136,7 @@ class SingleFileConsolidator(Consolidator):
 
     def consolidate(self,loader,start,stop):
         attr_name = self.attr_name
-        func = lambda feature_col : getattr(feature_col, attr_name)
+        func = lambda feature_col : getattr(feature_col[0], attr_name)
         return _consolidate_helper(start, stop, loader, func)
         
 
@@ -157,9 +157,9 @@ class FileGroupConsolidator(Consolidator):
 # 1st - If the feature allows non-tomographic versions
 # 2nd - If the feature allows tomographic versions
 # 3rd - An initialized Consolidator object
-valid_features = {"power_spectrum" : (False,True,
+valid_features = {"power_spectrum" : (None,'tomo_power_spectrum',
                                       SingleFileConsolidator('_power')),
-                  "peak_counts" : (True,True,
+                  "peak_counts" : ('peak_counts','tomo_peak_counts',
                                    SingleFileConsolidator('_counts'))}
 
 def get_feature_name(cmd_args):
@@ -167,11 +167,11 @@ def get_feature_name(cmd_args):
     assert feature_name in valid_features
 
     if cmd_args.tomo:
-        if not valid_features[feature_name][1]:
+        if valid_features[feature_name][1] is None:
             raise ValueError(("functionallity for {:s} is not defined for "
                               "tomography").format(feature_name))
     else:
-        if not valid_features[feature_name][0]:
+        if not valid_features[feature_name][0] is None:
             raise ValueError(("functionallity for {:s} is not defined for "
                               "non-tomography").format(feature_name))
     return feature_name,valid_features[feature_name][2]
@@ -194,16 +194,19 @@ def collector(fname, loader, start, stop, consolidator, average = False,
     except ValueError:
         print "Was supposed to be saved in: {:s}".format(fname)
         raise
+
     if average:
         out = np.mean(temp,axis=1)
-
+    else:
+        out = temp
     if not tomo:
         out = out[0,...]
-    print result.shape
-    np.save(fname,result)
+    print out.shape
+    np.save(fname,out)
 
 def process_name(name, fname_template, cosmo_storage_col, load_config, start,
-                 stop, tomo, cmd_args, num_tomo_bins, consolidator):
+                 stop, tomo, cmd_args, num_tomo_bins, consolidator,
+                 feature_name):
     if check_num_fields(fname_template) == 0:
         fname = fname_template
     else:
@@ -212,16 +215,18 @@ def process_name(name, fname_template, cosmo_storage_col, load_config, start,
     storage = cosmo_storage_col.get_analysis_product_storage(name,
                                                              load_config)
     if tomo:
-        loader = storage.feature_products.tomo_peak_counts
+        attr_name = valid_features[feature_name][1]
     else:
-        loader = storage.feature_products.peak_counts
+        attr_name = valid_features[feature_name][0]
+    loader = getattr(storage.feature_products, attr_name)
 
     collector(fname, loader, start, stop, consolidator, cmd_args.average,
               tomo = tomo)
 
 class ProcessNameWrapper(object):
     def __init__(self, fname_template, cosmo_storage_col, load_config, start,
-                 stop, tomo, cmd_args, num_tomo_bins, consolidator):
+                 stop, tomo, cmd_args, num_tomo_bins, consolidator,
+                 feature_name):
         self.fname_template = fname_template 
         self.cosmo_storage_col = cosmo_storage_col
         self.load_config = load_config 
@@ -231,11 +236,13 @@ class ProcessNameWrapper(object):
         self.cmd_args = cmd_args
         self.num_tomo_bins = num_tomo_bins
         self.consolidator = consolidator
+        self.feature_name = feature_name
 
     def __call__(self,name):
         process_name(name, self.fname_template, self.cosmo_storage_col, 
                      self.load_config, self.start, self.stop, self.tomo, 
-                     self.cmd_args, self.num_tomo_bins, self.consolidator)
+                     self.cmd_args, self.num_tomo_bins, self.consolidator,
+                     self.feature_name)
 
 
 
@@ -276,7 +283,7 @@ if __name__ == '__main__':
 
     f = ProcessNameWrapper(fname_template, cosmo_storage_col, load_config,
                            start, stop, tomo, cmd_args, num_tomo_bins,
-                           consolidator)
+                           consolidator, feature_name)
     if num_procs == 1 or len(names) == 1:
         map(f,names)
     else:
