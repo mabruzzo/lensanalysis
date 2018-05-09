@@ -79,8 +79,11 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
         # is necessary as the pca handler internally multiplies the scale by
         # this quantity.
         feat = Ensemble(features)
-        scale = (feat.mean(0)/np.sqrt(float(feat.shape[0])-1.0))
-        pca_basis = feat.principalComponents(scale = scale)
+        #scale = (feat.mean(0)/np.sqrt(float(feat.shape[0])-1.0))
+        #pca_basis = feat.principalComponents(scale = scale)
+
+        # I cannot currently get the pca_basis to work properly
+        pca_basis = feat.principalComponents()
         features = pca_transform(features,pca_basis,pca).values
         feature_index = None
     else:
