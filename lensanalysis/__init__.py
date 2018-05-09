@@ -1,1 +1,0 @@
-from degen_direction import compute_alpha_Petri
