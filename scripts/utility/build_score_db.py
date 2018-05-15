@@ -7,10 +7,10 @@ import numpy as np
 from glob2 import glob
 
 from lenstools.statistics.ensemble import Ensemble
-from lenstools.statistics.database import chi2database
 
 from lensanalysis.utility.emulator_building import  construct_emulator, \
     build_covariance_matrix, load_fiducial
+from lensanalysis.utility.scoring import BetterChi2Scorer, chi2database
 
 
 
@@ -130,6 +130,21 @@ def load_config_details(cmd_args):
     root_fname_prefix = config.getint("Details","root_fname_prefix")
     assert root_fname_prefix > 0
     out['root_fname_prefix'] = root_fname_prefix
+
+
+    # now we will just extract some details related to the interpolation
+    # first lets get the number of samples per parameter
+    out['num_samples'] = config.getint("Interpolation","num_samples")
+    assert out['num_samples'] > 0
+
+    # next lets configure Chi2Scoring method
+    augmented = config.getboolean("Interpolation","augmented_Rbf")
+    basis_function = config.get("Interpolation", "basis_function")
+    assert basis_function in ['multiquadric', 'inverse', 'gaussian', 'linear',
+                              'cubic', 'quintic', 'thin_plate']
+    out['method'] = BetterChi2Scorer(function = basis_function,
+                                     augmented = augmented)
+
     return out
 
 def identify_tomo_bins(cmd_args, config_dict):
@@ -273,7 +288,7 @@ def driver(cmd_args):
         # probably should make the following adjustable
         # create the grid on which we will interpolate - probably should make
         # this customizable
-        num_axis = 100
+        num_axis = config_dict['num_samples']
 
         p = np.array(np.meshgrid(np.linspace(0.2,0.5,num_axis),
                                  np.linspace(-1.5,-0.5,num_axis),
@@ -283,10 +298,6 @@ def driver(cmd_args):
         nchunks = 1
         pool = None
         nchunuks = None
-        #print len(specs)
-        #print specs.keys()
-        #emu = specs['TomoPeaks']['emulator']
-        #print emu
 
         if elem is None:
             db_name = db_name_template
@@ -298,8 +309,9 @@ def driver(cmd_args):
             # added to the old scores
             raise NotImplementedError("Have not defined behavior for when the "
                                       "emulator already exists")
-        chi2database(db_name,test_parameters,specs,table_name="scores",
-                     pool=pool,nchunks=nchunks)
+        chi2database(db_name, test_parameters, specs, table_name="scores",
+                     pool=pool, nchunks=nchunks,
+                     score_method = config_dict['method'])
 
 if __name__ == '__main__':
     cmd_args = parser.parse_args()
