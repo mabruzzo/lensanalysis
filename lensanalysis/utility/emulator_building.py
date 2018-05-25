@@ -24,7 +24,12 @@ def build_ensembles(paths,prefix=0,bin_num = None,
 
             temp = np.sum(temp.reshape(new_shape),axis=-1)
         if bin_num is not None and len(temp.shape)>1:
-            e = Ensemble(temp[bin_num-1,:])
+
+            if isinstance(bin_num,np.ndarray):
+                ind = (bin_num-1,)
+            else:
+                ind = bin_num-1
+            e = Ensemble(temp[ind,...])
         elif len(temp.shape)>1:
             temp_l = []
             for i in range(temp.shape[0]):

@@ -102,6 +102,21 @@ def load_config_details(cmd_args):
 
     out['cross_statistic'] = config.getboolean("Details","cross_statistic")
 
+    if out['cross_statistic']:
+        temp = config.get("Details", "specific_cross_bins")
+        l = [int(elem) for elem in temp.split(',')]
+        if len(l) == 0:
+            raise ValueError("Must specify at least one value for "
+                             "specific_cross_bins")
+        elif len(l) == 1 and l[0] == -1:
+            out["specific_cross_bins"] = None
+        else:
+            for elem in l:
+                assert elem>=0
+            out["specific_cross_bins"] = l
+    else:
+        out["specific_cross_bins"] = None
+
     # load in the covariance matrix array
     covariance_cosmo_path = config.get("Details","covariance_cosmo_path")
     assert os.path.isfile(covariance_cosmo_path)
@@ -232,9 +247,23 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
         if tomo_bin == -1:
             feature_name = "TomoPeaks"
             feature_index = []
+            bin_num = None
+
             if config_dict["cross_statistic"]:
+                if config_dict["specific_cross_bins"] is not None:
+                    bin_num = np.array(config_dict["specific_cross_bins"]) + 1
+                    # sorting is important!
+                    bin_num.sort()
+                    count = 0
+
                 for i in range(1,config_dict["num_tomo_bins"]+1):
                     for j in range(i,config_dict["num_tomo_bins"]+1):
+
+                        if bin_num is not None:
+                            count += 1
+                            if count not in bin_num:
+                                continue
+
                         if i == j:
                             for k in range(num_feat_bins):
                                 feature_index.append("z{:d}_{:d}".format(i,k))
@@ -246,7 +275,7 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                 for i in range(1,config_dict["num_tomo_bins"]+1):
                     for j in range(num_feat_bins):
                         feature_index.append("z{:d}_{:d}".format(i,j))
-            bin_num = None
+            
 
         else:
             feature_name = "z{:02d}".format(tomo_bin)
@@ -270,6 +299,10 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                                   feature_name = feature_name,
                                   combine_neighbor = combine_neighbor)
         emulator, ensemble_params,pca_basis = temp
+
+        if config_dict["cross_statistic"] is not None:
+            print emulator
+            raise RuntimeError()
 
         # load in the covariance matrix
         emulator_col = emulator[[feature_name]].columns
