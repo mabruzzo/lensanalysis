@@ -54,7 +54,8 @@ def parse_parameter_vals(names):
 
 def construct_emulator(feature_paths, parameter_index, feature_index = None,
                        fname_prefix=None, bin_num=None, pca = None,
-                       feature_name = 'features',combine_neighbor = 0):
+                       pca_scale = None, feature_name = 'features',
+                       combine_neighbor = 0):
     """
     Loads the features from the sampled cosmologies from a numpy array and then 
     constructs the emulator.
@@ -74,16 +75,20 @@ def construct_emulator(feature_paths, parameter_index, feature_index = None,
         features[i,:] = ensemble.as_matrix()[:,0]
 
     if pca is not None:
-        # we are setting the scale to the mean, as was done in Andrea's LSST
-        # tomography paper. The division by np.sqrt(features.shape[0]-1.0)
-        # is necessary as the pca handler internally multiplies the scale by
-        # this quantity.
+        # it turns out that the mutliplication by
+        # 1/np.sqrt(features.shape[0]-1.0) is part of the steps towards PCA
         feat = Ensemble(features)
-        #scale = (feat.mean(0)/np.sqrt(float(feat.shape[0])-1.0))
-        #pca_basis = feat.principalComponents(scale = scale)
+        if pca_scale is None:
+            scale = None
+        elif pca_scale == 'mean':
+            scale = feat.mean(0)
+        elif pca_scale == 'unscaled':
+            scale = 1.0
+        else:
+            raise ValueError("Invalid pca_scale keyword")
 
         # I cannot currently get the pca_basis to work properly
-        pca_basis = feat.principalComponents()
+        pca_basis = feat.principalComponents(scale=scale)
         features = pca_transform(features,pca_basis,pca).values
         feature_index = None
     else:

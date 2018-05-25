@@ -81,9 +81,9 @@ def load_config_details(cmd_args):
     config = ConfigParser.SafeConfigParser()
     config.read(path)
     out = {}
-    num_peak_bins = config.getint("Details","num_peak_bins")
-    assert num_peak_bins>0
-    out['num_peak_bins'] = num_peak_bins
+    num_feat_bins = config.getint("Details","num_feat_bins")
+    assert num_feat_bins>0
+    out['num_feat_bins'] = num_feat_bins
 
     if config.has_option("Details","combine_neighboring_bins"):
         combine_neighboring_bins = config.getint("Details",
@@ -91,14 +91,16 @@ def load_config_details(cmd_args):
         if combine_neighboring_bins <0:
             raise ValueError()
         elif combine_neighboring_bins>1:
-            assert num_peak_bins % combine_neighboring_bins ==0
+            assert num_feat_bins % combine_neighboring_bins ==0
         out['combine_neighboring_bins'] = combine_neighboring_bins
     else:
         out['combine_neighboring_bins'] = 0
     
     num_tomo_bins = config.getint("Details","num_tomo_bins")
-    assert num_peak_bins>0
+    assert num_feat_bins>0
     out['num_tomo_bins'] = num_tomo_bins
+
+    out['cross_statistic'] = config.getboolean("Details","cross_statistic")
 
     # load in the covariance matrix array
     covariance_cosmo_path = config.get("Details","covariance_cosmo_path")
@@ -175,11 +177,11 @@ def determine_pca_bins(cmd_args,config_dict,tomo_bins):
         return None
     assert pca > 0
     if -1 in tomo_bins:
-        assert pca <= config_dict['num_peak_bins']*config_dict['num_tomo_bins']
+        assert pca <= config_dict['num_feat_bins']*config_dict['num_tomo_bins']
         if len(tomo_bins) > 1:
-            assert pca <= config_dict['num_peak_bins']
+            assert pca <= config_dict['num_feat_bins']
     else:
-        assert pca <= config_dict['num_peak_bins']
+        assert pca <= config_dict['num_feat_bins']
     return pca
 
 def get_save_file(cmd_args,realizations):
@@ -219,32 +221,52 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
     fid_path = config_dict['fiducial_obs_path']
 
 
-    num_peak_bins = config_dict["num_peak_bins"]
+    num_feat_bins = config_dict["num_feat_bins"]
     combine_neighbor = config_dict['combine_neighboring_bins']
     if combine_neighbor >1:
         # sanity check
-        assert num_peak_bins %combine_neighbor == 0
-        num_peak_bins = num_peak_bins //combine_neighbor
+        assert num_feat_bins %combine_neighbor == 0
+        num_feat_bins = num_feat_bins //combine_neighbor
 
     for tomo_bin in tomo_bins:
         if tomo_bin == -1:
             feature_name = "TomoPeaks"
             feature_index = []
-            for i in range(1,config_dict["num_tomo_bins"]+1):
-                for j in range(num_peak_bins):
-                    feature_index.append("z{:d}_{:d}".format(i,j))
+            if config_dict["cross_statistic"]:
+                for i in range(1,config_dict["num_tomo_bins"]+1):
+                    for j in range(i,config_dict["num_tomo_bins"]+1):
+                        if i == j:
+                            for k in range(num_feat_bins):
+                                feature_index.append("z{:d}_{:d}".format(i,k))
+                        else:
+                            for k in range(num_feat_bins):
+                                feature_index.append(("z{:d},{:d}_{:d}"
+                                                      ).format(i,j,k))
+            else:
+                for i in range(1,config_dict["num_tomo_bins"]+1):
+                    for j in range(num_feat_bins):
+                        feature_index.append("z{:d}_{:d}".format(i,j))
             bin_num = None
-            
+
         else:
             feature_name = "z{:02d}".format(tomo_bin)
             feature_index = ["z{:d}_{:d}".format(tomo_bin,j) \
-                             for j in range(num_peak_bins)]
-            bin_num = tomo_bin
+                             for j in range(num_feat_bins)]
+            if config_dict["cross_statistic"]:
+                # first convert tomo_bin to zero_indexed
+                ind = tomo_bin - 1
+                bin_num = (ind*(2*config_dict["num_tomo_bins"] + 1 - ind)//2
+                           + ind - ind)
+                # finally conver bin_num from zero-indexing back to one-indexing
+                bin_num-=1
+            else:
+                bin_num = tomo_bin
         # build the emulator
         temp = construct_emulator(config_dict['paths'], parameter_index,
                                   feature_index = feature_index,
                                   fname_prefix=fname_prefix,
                                   bin_num=bin_num, pca = pca_bins,
+                                  pca_scale = None,
                                   feature_name = feature_name,
                                   combine_neighbor = combine_neighbor)
         emulator, ensemble_params,pca_basis = temp
