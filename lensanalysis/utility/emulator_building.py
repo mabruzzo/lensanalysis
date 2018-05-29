@@ -23,19 +23,25 @@ def build_ensembles(paths,prefix=0,bin_num = None,
             new_shape.append(combine_neighbor)
 
             temp = np.sum(temp.reshape(new_shape),axis=-1)
-        if bin_num is not None and len(temp.shape)>1:
 
-            if isinstance(bin_num,np.ndarray):
-                ind = (bin_num-1,)
+        
+        if len(temp.shape)>1:
+            if bin_num is not None and not isinstance(bin_num,np.ndarray):
+                e = Ensemble(temp[bin_num-1,...])
+
             else:
-                ind = bin_num-1
-            e = Ensemble(temp[ind,...])
-        elif len(temp.shape)>1:
-            temp_l = []
-            for i in range(temp.shape[0]):
-                temp_l.append(temp[i,...])
-            # Simply reshaping does not work for 3D input
-            e = Ensemble(np.hstack(temp_l))
+                
+                if bin_num is not None:                    
+                    cur_temp = temp[(bin_num-1,)]
+                else:
+                    cur_temp = temp
+
+                temp_l = []
+                for i in range(cur_temp.shape[0]):
+                    temp_l.append(cur_temp[i,...])
+                # Simply reshaping does not work for 3D input
+                e = Ensemble(np.hstack(temp_l))
+                #print temp.shape,cur_temp.shape,e.values.shape
         else:
             assert bin_num is None or bin_num == 1
             e = Ensemble(temp)
