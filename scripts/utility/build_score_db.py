@@ -73,6 +73,8 @@ parser.add_argument("--indiv_tomo_bin", dest = "indiv_tomo_bin",
                             "full tomographic dataset. If the option is "
                             "specified, but no bins are given, then all "
                             "indivdual tomographic bins are processed."))
+parser.add_argument("-p", dest = "p", action = "store_true", default = False,
+                    help = ("Indicates that we are using MPI"))
 
 def load_config_details(cmd_args):
     path = cmd_args.config
@@ -161,6 +163,14 @@ def load_config_details(cmd_args):
                               'cubic', 'quintic', 'thin_plate']
     out['method'] = BetterChi2Scorer(function = basis_function,
                                      augmented = augmented)
+
+    for par_min,par_max in [("Om_min","Om_max"), ("w_min","w_max"),
+                            ("sigma8_min","sigma8_max")]:
+        out[par_min] = config.getfloat("Interpolation",par_min)
+        out[par_max] = config.getfloat("Interpolation",par_max)
+        if out[par_min] >= out[par_max]:
+            raise ValueError("{:s} must be less than {:s}".format(par_min,
+                                                                  par_max))
 
     return out
 
@@ -300,10 +310,6 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                                   combine_neighbor = combine_neighbor)
         emulator, ensemble_params,pca_basis = temp
 
-        if config_dict["cross_statistic"] is not None:
-            print emulator
-            raise RuntimeError()
-
         # load in the covariance matrix
         emulator_col = emulator[[feature_name]].columns
         features_covariance = build_covariance_matrix(cov_path,
@@ -320,11 +326,51 @@ def prepare_specs(tomo_bins,config_dict, pca_bins = None,
                                      pca = pca_bins,
                                      indiv_realization = realization_ind,
                                      combine_neighbor = combine_neighbor)
-            
+
         specs[feature_name] = {"emulator" : emulator,
                                "data" : fiducial_obs,
                                "data_covariance" : features_covariance}
     return specs, ensemble_params, emulator.parameter_names
+
+
+# Below I have included some functions for identifying the parameter values
+# during MPI processing
+
+# this needs to be tested slightly better and the leftmost value should
+# probably be improved
+
+def prepare_col(ind_start,vals,length,cols_to_right=0,leftmost=False):
+    if cols_to_right:
+        vals = np.repeat(vals,cols_to_right*len(vals))
+    l_vals = len(vals)
+    if l_vals>ind_start:
+        roll = l_vals - ind_start
+    elif l_vals<ind_start:
+        roll = l_vals - (ind_start % l_vals)
+    else:
+        roll = 0
+    cur = np.roll(vals,roll)
+    
+    if leftmost:
+        return cur[:length]
+    num_tiles = length // l_vals
+    if length % l_vals:
+        num_tiles +=1
+    return np.tile(cur,num_tiles)[:length]
+
+def prepare_last_col(ind_start,si_8_vals,length):
+    return prepare_col(ind_start,si_8_vals,length)
+
+def prepare_middle_col(ind_start,w_vals,length):
+    return prepare_col(ind_start,w_vals,length,1)
+
+def prepare_first_col(ind_start,om_vals,length):
+    return prepare_col(ind_start,om_vals,length,2,True)
+
+
+
+
+
 
 def driver(cmd_args):
     config_dict = load_config_details(cmd_args)
@@ -334,39 +380,50 @@ def driver(cmd_args):
     # for now, we will not worry about the following 2 parameters
     realization_ind = [None]
     db_name_template = get_save_file(cmd_args,realization_ind)
-
+    
     for elem in realization_ind:
         specs,ensemble_params,param_name = prepare_specs(tomo_bins,config_dict,
                                                          pca_bins = pca_bins,
                                                          realization_ind = elem)
 
-        # probably should make the following adjustable
-        # create the grid on which we will interpolate - probably should make
-        # this customizable
-        num_axis = config_dict['num_samples']
-
-        p = np.array(np.meshgrid(np.linspace(0.2,0.5,num_axis),
-                                 np.linspace(-1.5,-0.5,num_axis),
-                                 np.linspace(0.5,1.2,num_axis),
-                                 indexing="ij")).reshape(3,num_axis**3).T
-        test_parameters = Ensemble(p,columns=param_name)
-        nchunks = 1
-        pool = None
-        nchunuks = None
-
-        if elem is None:
-            db_name = db_name_template
+        if cmd_args.p:
+            assert len(realization_ind) == 1
+            assert len(specs) == 1
+            raise NotImplementedError()
         else:
-            db_name = db_name_template.format(elem)
-        print db_name
-        if os.path.isfile(db_name):
-            # if we do not handle this, then the new scores will simply be
-            # added to the old scores
-            raise NotImplementedError("Have not defined behavior for when the "
-                                      "emulator already exists")
-        chi2database(db_name, test_parameters, specs, table_name="scores",
-                     pool=pool, nchunks=nchunks,
-                     score_method = config_dict['method'])
+            
+            # probably should make the following adjustable
+            # create the grid on which we will interpolate
+            num_axis = config_dict['num_samples']
+
+            p = np.array(np.meshgrid(np.linspace(config_dict["Om_min"],
+                                                 config_dict["Om_max"],
+                                                 num_axis),
+                                     np.linspace(config_dict["w_min"],
+                                                 config_dict["w_max"],
+                                                 num_axis),
+                                     np.linspace(config_dict["sigma8_min"],
+                                                 config_dict["sigma8_max"],
+                                                 num_axis),
+                                     indexing="ij")).reshape(3,num_axis**3).T
+            test_parameters = Ensemble(p,columns=param_name)
+            nchunks = 1
+            pool = None
+            nchunuks = None
+
+            if elem is None:
+                db_name = db_name_template
+            else:
+                db_name = db_name_template.format(elem)
+            print db_name
+            if os.path.isfile(db_name):
+                # if we do not handle this, then the new scores will simply be
+                # added to the old scores
+                raise NotImplementedError("Have not defined behavior for when "
+                                          "the database already exists")
+            chi2database(db_name, test_parameters, specs, table_name="scores",
+                         pool=pool, nchunks=nchunks,
+                         score_method = config_dict['method'])
 
 if __name__ == '__main__':
     cmd_args = parser.parse_args()
