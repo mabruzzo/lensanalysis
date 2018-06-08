@@ -169,6 +169,8 @@ def load_config_details(cmd_args):
         out[par_min] = config.getfloat("Interpolation",par_min)
         out[par_max] = config.getfloat("Interpolation",par_max)
         if out[par_min] >= out[par_max]:
+            if out[par_min] == out[par_max] and par_min == "w_min":
+                continue
             raise ValueError("{:s} must be less than {:s}".format(par_min,
                                                                   par_max))
 
@@ -395,18 +397,30 @@ def driver(cmd_args):
             # probably should make the following adjustable
             # create the grid on which we will interpolate
             num_axis = config_dict['num_samples']
-
-            p = np.array(np.meshgrid(np.linspace(config_dict["Om_min"],
+            if config_dict["w_min"] != config_dict["w_max"]:
+                p = np.array(np.meshgrid(np.linspace(config_dict["Om_min"],
+                                                     config_dict["Om_max"],
+                                                     num_axis),
+                                         np.linspace(config_dict["w_min"],
+                                                     config_dict["w_max"],
+                                                     num_axis),
+                                         np.linspace(config_dict["sigma8_min"],
+                                                     config_dict["sigma8_max"],
+                                                     num_axis),
+                                         indexing="ij")).reshape(3,
+                                                                 num_axis**3).T
+                test_parameters = Ensemble(p,columns=param_name)
+            else:
+                param_dict = {"Om" : np.linspace(config_dict["Om_min"],
                                                  config_dict["Om_max"],
                                                  num_axis),
-                                     np.linspace(config_dict["w_min"],
-                                                 config_dict["w_max"],
-                                                 num_axis),
-                                     np.linspace(config_dict["sigma8_min"],
-                                                 config_dict["sigma8_max"],
-                                                 num_axis),
-                                     indexing="ij")).reshape(3,num_axis**3).T
-            test_parameters = Ensemble(p,columns=param_name)
+                              "sigma8" : np.linspace(config_dict["sigma8_min"],
+                                                     config_dict["sigma8_max"],
+                                                     num_axis)}
+                test_parameters = Ensemble.meshgrid(param_dict,
+                                                    {"Om" : 0,
+                                                     "sigma8": 1})
+                test_parameters["w"] = -1.0
             nchunks = 1
             pool = None
             nchunuks = None
