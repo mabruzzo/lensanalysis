@@ -119,6 +119,10 @@ class Consolidator(object):
     Different entries along axis 1 corresponds to different Realizations.
     Different entires along axis 2 correspond to components to components of a 
     data vector along within a given tomographic bin (or bin combination).
+
+
+    I am unclear on why I had originally made this. The way the loaders work,
+    seems to alleviate the need for creating this and subclassing it.
     """
 
     def __init__(self, attr_name):
@@ -136,7 +140,10 @@ class SingleFileConsolidator(Consolidator):
 
     def consolidate(self,loader,start,stop):
         attr_name = self.attr_name
-        func = lambda feature_col : getattr(feature_col[0], attr_name)
+        #print loader.load(3)
+        #func = lambda feature_col : getattr(feature_col[0], attr_name)
+        func = lambda feature_col : [getattr(elem, attr_name) for elem in \
+                                     feature_col]
         return _consolidate_helper(start, stop, loader, func)
         
 
