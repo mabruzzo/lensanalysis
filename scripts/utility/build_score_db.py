@@ -9,7 +9,7 @@ from glob2 import glob
 from lenstools.statistics.ensemble import Ensemble
 
 from lensanalysis.utility.emulator_building import  construct_emulator, \
-    build_covariance_matrix, load_fiducial
+    build_covariance_matrix, load_fiducial, build_ensembles
 from lensanalysis.utility.scoring import BetterChi2Scorer, chi2database
 
 
@@ -31,13 +31,14 @@ parser.add_argument('-o', '--observed', dest = 'observed', action = 'store',
 parser.add_argument("--min",dest = "min_realization", action = "store",
                     default = None, type = int,
                     help = ("Specify the minimum realization to process."
-                            "Default is the maximum allowed realization to "
-                            "be processed."))
+                            "Default is the minimum allowed realization to "
+                            "be processed. This is one-indexed."))
 parser.add_argument("--max",dest = "max_realization", action = "store",
                     default = None, type =int,
                     help = ("Specify the maximum (inclusive) realization to "
                             "process. Default is the maximum allowed "
-                            "realization to be processed."))
+                            "realization to be processed. This is "
+                            "one-indexed."))
 parser.add_argument("-s", "--save", dest = "save", action="store",
                     help = ("Specify the path of the file where the resulting "
                             "database will be saved. It is expected to have a "
@@ -371,7 +372,25 @@ def prepare_first_col(ind_start,om_vals,length):
 
 
 
+def load_realization_ind(cmd_args, config_dict):
+    """
+    Load in the details about individual realizations.
+    """
+    if not cmd_args.indiv_realizations:
+        return [None]
 
+    min_r, max_r = cmd_args.min_realization, cmd_args.max_realization
+    if min_r is None:
+        min_r = 1
+    if max_r is None:
+        # let's load in the fiducial temporarily - we just want to see how many
+        # realizations there are. We will properly load it in again later. 
+        fid = build_ensembles([config_dict['fiducial_obs_path']])[1][0]
+        max_r = fid.values.shape[0]
+
+    assert isinstance(min_r,int) and isinstance(max_r,int)
+    assert 1 <= min_r <=max_r
+    return range(min_r,max_r+1)
 
 
 def driver(cmd_args):
@@ -380,7 +399,7 @@ def driver(cmd_args):
     
     pca_bins = determine_pca_bins(cmd_args,config_dict,tomo_bins)
     # for now, we will not worry about the following 2 parameters
-    realization_ind = [None]
+    realization_ind = load_realization_ind(cmd_args,config_dict)
     db_name_template = get_save_file(cmd_args,realization_ind)
     
     for elem in realization_ind:

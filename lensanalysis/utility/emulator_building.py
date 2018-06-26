@@ -180,12 +180,16 @@ def load_fiducial(path, emulator_columns, fname_prefix=None, bin_num=None,
     """
     Loads the fiducial cosmology from a numpy array and constructs the 
     "observed features" using the correct column names to match the emulator.
+
+    indiv_realization indicates the one-indexed realization number.
     """
     fiducial = build_ensembles([path],prefix=fname_prefix,bin_num=bin_num,
                                combine_neighbor = combine_neighbor)[1][0]
     if indiv_realization is not None:
-        raise NotImplementedError("Not currently capable of handling "
-                                  "individual realizations")
+        assert isinstance(indiv_realization, int) and indiv_realization >= 1
+        assert fiducial.values.shape[0] >= indiv_realization
+        fiducial = fiducial.iloc[indiv_realization-1:indiv_realization]
+
     if pca_basis is not None or pca is not None:
         if pca_basis is not None and pca is not None:
             fiducial = Ensemble(pca_transform(fiducial.values.astype('float64'),
